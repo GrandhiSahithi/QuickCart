@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "QuickCart",
+    "slug": "quickcart",
+    "scheme": "quickcart",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0f0f14",
+    "plugins": ["expo-router"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.quickcart"
+    },
+    "android": {
+      "package": "com.example.quickcart"
+    }
+  }
+}

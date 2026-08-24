@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: quickcart-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: quickcart
+      POSTGRES_USER: quickcart
+      POSTGRES_PASSWORD: quickcart123
+    ports:
+      - "5433:5432"
+    volumes:
+      - quickcart_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  quickcart_postgres_data:
