@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -31,6 +33,9 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.CUSTOMER;
+
+    @Column(nullable = false)
+    private Instant createdAt = Instant.now();
 
     public User(String name, String email, String passwordHash) {
         this.name = name;

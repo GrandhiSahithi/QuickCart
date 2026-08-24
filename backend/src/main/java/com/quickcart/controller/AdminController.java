@@ -1,5 +1,6 @@
 package com.quickcart.controller;
 
+import com.quickcart.dto.AdminCustomerResponse;
 import com.quickcart.dto.AdminOrderResponse;
 import com.quickcart.dto.AdminStatsResponse;
 import com.quickcart.dto.StoreResponse;
@@ -28,6 +29,11 @@ public class AdminController {
     @GetMapping("/orders")
     public List<AdminOrderResponse> getOrders() {
         return adminService.getAllOrders().stream().map(AdminOrderResponse::from).toList();
+    }
+
+    @GetMapping("/customers")
+    public List<AdminCustomerResponse> getCustomers() {
+        return adminService.getAllCustomers();
     }
 
     @GetMapping("/stats")

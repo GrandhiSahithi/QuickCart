@@ -1,11 +1,14 @@
 package com.quickcart.service;
 
+import com.quickcart.dto.AdminCustomerResponse;
 import com.quickcart.dto.AdminStatsResponse;
 import com.quickcart.model.Order;
 import com.quickcart.model.OrderItem;
 import com.quickcart.model.Store;
+import com.quickcart.model.User;
 import com.quickcart.repository.OrderRepository;
 import com.quickcart.repository.StoreRepository;
+import com.quickcart.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,10 +24,12 @@ public class AdminService {
 
     private final OrderRepository orderRepository;
     private final StoreRepository storeRepository;
+    private final UserRepository userRepository;
 
-    public AdminService(OrderRepository orderRepository, StoreRepository storeRepository) {
+    public AdminService(OrderRepository orderRepository, StoreRepository storeRepository, UserRepository userRepository) {
         this.orderRepository = orderRepository;
         this.storeRepository = storeRepository;
+        this.userRepository = userRepository;
     }
 
     public List<Order> getAllOrders() {
@@ -33,6 +38,27 @@ public class AdminService {
 
     public List<Store> getAllStores() {
         return storeRepository.findAll();
+    }
+
+    public List<AdminCustomerResponse> getAllCustomers() {
+        List<Order> orders = orderRepository.findAll();
+
+        Map<Long, Long> orderCountByUser = new LinkedHashMap<>();
+        Map<Long, BigDecimal> spendByUser = new LinkedHashMap<>();
+        for (Order order : orders) {
+            Long userId = order.getUser().getId();
+            orderCountByUser.merge(userId, 1L, Long::sum);
+            spendByUser.merge(userId, order.getTotalAmount(), BigDecimal::add);
+        }
+
+        return userRepository.findAll().stream()
+                .sorted(Comparator.comparing(User::getCreatedAt).reversed())
+                .map(user -> AdminCustomerResponse.from(
+                        user,
+                        orderCountByUser.getOrDefault(user.getId(), 0L),
+                        spendByUser.getOrDefault(user.getId(), BigDecimal.ZERO)
+                ))
+                .toList();
     }
 
     public AdminStatsResponse getStats() {

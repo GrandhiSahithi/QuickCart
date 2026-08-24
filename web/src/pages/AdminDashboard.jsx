@@ -9,6 +9,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [stores, setStores] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
 
@@ -18,11 +19,12 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
-    Promise.all([adminApi.stats(), adminApi.orders(), adminApi.stores()])
-      .then(([statsData, ordersData, storesData]) => {
+    Promise.all([adminApi.stats(), adminApi.orders(), adminApi.stores(), adminApi.customers()])
+      .then(([statsData, ordersData, storesData, customersData]) => {
         setStats(statsData);
         setOrders(ordersData);
         setStores(storesData);
+        setCustomers(customersData);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -48,6 +50,9 @@ export default function AdminDashboard() {
         </button>
         <button className={tab === "orders" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("orders")}>
           Orders ({orders.length})
+        </button>
+        <button className={tab === "customers" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("customers")}>
+          Customers ({customers.length})
         </button>
         <button className={tab === "stores" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("stores")}>
           Stores ({stores.length})
@@ -140,6 +145,40 @@ export default function AdminDashboard() {
             </tbody>
           </table>
           {orders.length === 0 && <p className="admin-empty">No orders yet.</p>}
+        </div>
+      )}
+
+      {tab === "customers" && (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>QuickCart+</th>
+                <th>Joined</th>
+                <th>Orders</th>
+                <th>Total Spent</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((c) => (
+                <tr key={c.id}>
+                  <td>#{c.id}</td>
+                  <td>{c.name}</td>
+                  <td className="admin-muted">{c.email}</td>
+                  <td>{c.role}</td>
+                  <td>{c.premium ? "✓" : "—"}</td>
+                  <td className="admin-muted">{new Date(c.createdAt).toLocaleDateString()}</td>
+                  <td>{c.orderCount}</td>
+                  <td>${c.totalSpent.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {customers.length === 0 && <p className="admin-empty">No accounts yet.</p>}
         </div>
       )}
 

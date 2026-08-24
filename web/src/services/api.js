@@ -46,5 +46,6 @@ export const orderApi = {
 export const adminApi = {
   stores: () => api.get("/admin/stores").then((r) => r.data),
   orders: () => api.get("/admin/orders").then((r) => r.data),
+  customers: () => api.get("/admin/customers").then((r) => r.data),
   stats: () => api.get("/admin/stats").then((r) => r.data)
 };
