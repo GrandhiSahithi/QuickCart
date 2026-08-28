@@ -1352,6 +1352,24 @@ input {
   margin-top: 0;
 }
 
+.cart-store-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.cart-store-select input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.cart-store-section-deferred {
+  opacity: 0.55;
+}
+
 .cart-grand-summary {
   margin-top: 8px;
 }

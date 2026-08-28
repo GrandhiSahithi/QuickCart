@@ -10,6 +10,19 @@ export default function Cart() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [storesById, setStoresById] = useState({});
+  // Which stores to include in checkout right now - everything's selected
+  // by default, but a store can be unchecked to check out the rest while
+  // leaving it in the cart for later.
+  const [selectedStoreIds, setSelectedStoreIds] = useState(() => new Set(cart.stores.map((s) => s.storeId)));
+
+  function toggleStore(storeId) {
+    setSelectedStoreIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(storeId)) next.delete(storeId);
+      else next.add(storeId);
+      return next;
+    });
+  }
 
   useEffect(() => {
     cart.stores.forEach((s) => {
@@ -42,7 +55,7 @@ export default function Cart() {
       navigate("/login", { state: { from: "/checkout" } });
       return;
     }
-    navigate("/checkout");
+    navigate("/checkout", { state: { selectedStoreIds: [...selectedStoreIds] } });
   }
 
   const sections = cart.stores.map((s) => ({
@@ -55,16 +68,31 @@ export default function Cart() {
     })
   }));
 
-  const grandTotal = sections.reduce((sum, s) => sum + s.pricing.total, 0);
+  const selectedSections = sections.filter((s) => selectedStoreIds.has(s.storeId));
+  const grandTotal = selectedSections.reduce((sum, s) => sum + s.pricing.total, 0);
+  const deferredCount = sections.length - selectedSections.length;
 
   return (
     <main className="page-container">
       <h1>Your Cart</h1>
 
-      {sections.map((section) => (
-        <div className="cart-store-section" key={section.storeId}>
+      {sections.length > 1 && (
+        <p className="cart-multi-store-note">
+          Uncheck a store to leave it in your cart and check out the rest now.
+        </p>
+      )}
+
+      {sections.map((section) => {
+        const selected = selectedStoreIds.has(section.storeId);
+        return (
+        <div className={`cart-store-section${selected ? "" : " cart-store-section-deferred"}`} key={section.storeId}>
           <div className="cart-store-header">
-            <p className="cart-store-name">From {section.storeName}</p>
+            <label className="cart-store-select">
+              {sections.length > 1 && (
+                <input type="checkbox" checked={selected} onChange={() => toggleStore(section.storeId)} />
+              )}
+              <span className="cart-store-name">From {section.storeName}</span>
+            </label>
             <button type="button" className="link-button" onClick={() => removeStore(section.storeId)}>
               Remove all
             </button>
@@ -122,20 +150,26 @@ export default function Cart() {
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <div className="cart-summary cart-grand-summary">
-        {sections.length > 1 && (
+        {selectedSections.length > 1 && (
           <p className="cart-multi-store-note">
-            {sections.length} stores in this order — each is delivered and tracked separately.
+            {selectedSections.length} stores in this order — each is delivered and tracked separately.
+          </p>
+        )}
+        {deferredCount > 0 && (
+          <p className="cart-multi-store-note">
+            {deferredCount} store{deferredCount === 1 ? "" : "s"} staying in your cart for later.
           </p>
         )}
         <div className="cart-total-row">
           <span>Order total</span>
           <strong>${grandTotal.toFixed(2)}</strong>
         </div>
-        <button className="primary-button" onClick={handleCheckout}>
-          Checkout
+        <button className="primary-button" onClick={handleCheckout} disabled={selectedSections.length === 0}>
+          {selectedSections.length === 0 ? "Select a store to check out" : "Checkout"}
         </button>
       </div>
     </main>

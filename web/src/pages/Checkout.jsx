@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLocationContext } from "../context/LocationContext";
@@ -19,6 +19,7 @@ export default function Checkout() {
   const { cart, updateQuantity, replaceItem, removeStore } = useCart();
   const { user } = useAuth();
   const { location } = useLocationContext();
+  const routerLocation = useLocation();
   const navigate = useNavigate();
   const [method, setMethod] = useState("CARD");
   const [card, setCard] = useState("4242 4242 4242 4242");
@@ -29,15 +30,25 @@ export default function Checkout() {
   const [availability, setAvailability] = useState(null);
   const [alternativesByProduct, setAlternativesByProduct] = useState({});
 
+  // Cart came with more than one store and the customer chose to check out
+  // only some of them (Cart's per-store checkboxes) - everything else
+  // this page does operates on just that subset, leaving the rest in the
+  // cart untouched. No selection (e.g. arriving here directly) means
+  // "check out everything," matching the old single-checkout behavior.
+  const selectedStoreIds = routerLocation.state?.selectedStoreIds;
+  const storesToCheckout = selectedStoreIds
+    ? cart.stores.filter((s) => selectedStoreIds.includes(s.storeId))
+    : cart.stores;
+
   useEffect(() => {
-    if (!cart.stores.length) return;
+    if (!storesToCheckout.length) return;
 
     orderApi
       .mine()
       .then((orders) => setIsFirstOrder(orders.length === 0))
       .catch(() => {});
 
-    cart.stores.forEach((s) => {
+    storesToCheckout.forEach((s) => {
       storeApi
         .get(s.storeId)
         .then((data) => setStoresById((prev) => ({ ...prev, [s.storeId]: data })))
@@ -47,12 +58,12 @@ export default function Checkout() {
     // Re-check live stock right before payment - something in the cart
     // could have sold out since it was added.
     let cancelled = false;
-    Promise.all(cart.stores.map((s) => storeApi.products(s.storeId).then((products) => ({ storeId: s.storeId, products }))))
+    Promise.all(storesToCheckout.map((s) => storeApi.products(s.storeId).then((products) => ({ storeId: s.storeId, products }))))
       .then((results) => {
         if (cancelled) return;
         const liveByStore = Object.fromEntries(results.map((r) => [r.storeId, r.products]));
         const issues = [];
-        for (const s of cart.stores) {
+        for (const s of storesToCheckout) {
           for (const item of s.items) {
             const live = liveByStore[s.storeId]?.find((p) => p.id === item.id);
             if (!live || live.stock < item.quantity) {
@@ -74,18 +85,20 @@ export default function Checkout() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.stores.length]);
+  }, [storesToCheckout.length]);
 
-  // Redirect to an empty cart, but only when we're not actively placing an
-  // order - checkout removes each store from the cart as its order
-  // succeeds, so the cart legitimately hits zero mid-checkout too.
+  // Redirect to the cart, but only when we're not actively placing an order
+  // - checkout removes each store from the cart as its order succeeds, so
+  // the selected subset legitimately hits zero mid-checkout too. An empty
+  // selection with a non-empty cart (e.g. those stores were removed from
+  // another tab) sends them back the same way.
   useEffect(() => {
-    if (!placing && cart.stores.length === 0) {
+    if (!placing && (cart.stores.length === 0 || storesToCheckout.length === 0)) {
       navigate("/cart");
     }
-  }, [placing, cart.stores.length, navigate]);
+  }, [placing, cart.stores.length, storesToCheckout.length, navigate]);
 
-  if (!cart.stores.length) {
+  if (!cart.stores.length || !storesToCheckout.length) {
     return null;
   }
 
@@ -99,7 +112,7 @@ export default function Checkout() {
     setAvailability((prev) => prev.filter((issue) => !(issue.storeId === storeId && issue.item.id === productId)));
   }
 
-  const sections = cart.stores.map((s, index) => ({
+  const sections = storesToCheckout.map((s, index) => ({
     ...s,
     pricing: computeCartPricing({
       items: s.items,
@@ -120,7 +133,7 @@ export default function Checkout() {
 
     const createdOrders = [];
     try {
-      for (const s of cart.stores) {
+      for (const s of storesToCheckout) {
         const order = await orderApi.create({
           storeId: s.storeId,
           items: s.items.map((item) => ({ productId: item.id, quantity: item.quantity })),
@@ -134,7 +147,7 @@ export default function Checkout() {
     } catch {
       setError(
         createdOrders.length > 0
-          ? `Placed ${createdOrders.length} of ${cart.stores.length} orders - the rest are still in your cart. Please try again.`
+          ? `Placed ${createdOrders.length} of ${storesToCheckout.length} orders - the rest are still in your cart. Please try again.`
           : "Couldn't place your order. Please try again."
       );
       setPlacing(false);
@@ -151,6 +164,11 @@ export default function Checkout() {
         {sections.length > 1 && (
           <p className="cart-multi-store-note">
             {sections.length} stores in this order — each is delivered and tracked separately.
+          </p>
+        )}
+        {cart.stores.length > storesToCheckout.length && (
+          <p className="cart-multi-store-note">
+            {cart.stores.length - storesToCheckout.length} store{cart.stores.length - storesToCheckout.length === 1 ? "" : "s"} staying in your cart for later.
           </p>
         )}
 
