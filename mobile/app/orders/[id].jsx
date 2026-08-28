@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { useLocalSearchParams } from "expo-router";
 import { orderApi } from "../../services/api";
 import { colors } from "../../theme/colors";
@@ -52,10 +51,8 @@ export default function OrderTrackingScreen() {
   }
 
   const currentIndex = STATUS_STEPS.indexOf(tracking.status);
-  const riderPosition = {
-    latitude: tracking.currentLat ?? tracking.storeLat,
-    longitude: tracking.currentLng ?? tracking.storeLng
-  };
+  const isOutForDelivery = tracking.status === "OUT_FOR_DELIVERY";
+  const isDelivered = tracking.status === "DELIVERED";
 
   return (
     <View style={styles.safe}>
@@ -71,33 +68,23 @@ export default function OrderTrackingScreen() {
         ))}
       </View>
 
-      <MapView
-        provider={PROVIDER_DEFAULT}
-        userInterfaceStyle="dark"
-        style={styles.map}
-        initialRegion={{
-          latitude: (tracking.storeLat + tracking.destLat) / 2,
-          longitude: (tracking.storeLng + tracking.destLng) / 2,
-          latitudeDelta: 0.06,
-          longitudeDelta: 0.06
-        }}
-      >
-        <Marker coordinate={{ latitude: tracking.storeLat, longitude: tracking.storeLng }} title={order.storeName} pinColor={colors.accent} />
-        <Marker coordinate={{ latitude: tracking.destLat, longitude: tracking.destLng }} title="Delivery address" />
-        {tracking.status === "OUT_FOR_DELIVERY" && (
-          <Marker coordinate={riderPosition} title="Your delivery">
-            <Text style={{ fontSize: 26 }}>🛵</Text>
-          </Marker>
-        )}
-        <Polyline
-          coordinates={[
-            { latitude: tracking.storeLat, longitude: tracking.storeLng },
-            { latitude: tracking.destLat, longitude: tracking.destLng }
-          ]}
-          strokeColor={colors.accent}
-          lineDashPattern={[6, 8]}
-        />
-      </MapView>
+      <View style={styles.routeCard}>
+        <View style={styles.routePoint}>
+          <Text style={styles.routeIcon}>🏬</Text>
+          <Text style={styles.routeLabel}>{order.storeName}</Text>
+        </View>
+
+        <View style={styles.routeConnector}>
+          <View style={styles.routeLine} />
+          {isOutForDelivery && <Text style={styles.routeRiderIcon}>🛵</Text>}
+          <View style={styles.routeLine} />
+        </View>
+
+        <View style={styles.routePoint}>
+          <Text style={styles.routeIcon}>{isDelivered ? "✅" : "📍"}</Text>
+          <Text style={styles.routeLabel}>Delivery address</Text>
+        </View>
+      </View>
 
       <View style={styles.summary}>
         {order.items.map((item) => (
@@ -125,7 +112,19 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: colors.accent },
   stepLabel: { fontSize: 10, color: colors.textMuted, textAlign: "center" },
   stepLabelDone: { color: colors.accent, fontWeight: "700" },
-  map: { height: 320, borderRadius: 16, overflow: "hidden", marginBottom: 16 },
+  routeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    alignItems: "center"
+  },
+  routePoint: { alignItems: "center", gap: 6 },
+  routeIcon: { fontSize: 28 },
+  routeLabel: { color: colors.text, fontWeight: "700", fontSize: 13 },
+  routeConnector: { alignItems: "center", paddingVertical: 6 },
+  routeLine: { width: 2, height: 18, backgroundColor: colors.border },
+  routeRiderIcon: { fontSize: 22, marginVertical: 2 },
   summary: { backgroundColor: colors.surface, borderRadius: 14, padding: 16 },
   itemRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
   itemText: { color: colors.textSecondary },

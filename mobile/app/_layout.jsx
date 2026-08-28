@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "../context/AuthContext";
@@ -32,20 +33,22 @@ function AuthGate({ children }) {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <StatusBar style="light" />
-        <AuthGate>
-          <Stack
-            screenOptions={{
-              headerTitle: "QuickCart",
-              headerStyle: { backgroundColor: colors.surface },
-              headerTintColor: colors.text,
-              contentStyle: { backgroundColor: colors.background }
-            }}
-          />
-        </AuthGate>
-      </CartProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <CartProvider>
+          <StatusBar style="light" />
+          <AuthGate>
+            <Stack
+              screenOptions={{
+                headerTitle: "QuickCart",
+                headerStyle: { backgroundColor: colors.surface },
+                headerTintColor: colors.text,
+                contentStyle: { backgroundColor: colors.background }
+              }}
+            />
+          </AuthGate>
+        </CartProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "../context/CartContext";
 import { orderApi } from "../services/api";
 import { colors } from "../theme/colors";
@@ -8,6 +9,7 @@ import { colors } from "../theme/colors";
 export default function CheckoutScreen() {
   const { cart, total, removeStore } = useCart();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [card, setCard] = useState("4242 4242 4242 4242");
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState(null);
@@ -49,50 +51,58 @@ export default function CheckoutScreen() {
 
   return (
     <View style={styles.safe}>
-      <Text style={styles.title}>Checkout</Text>
-      <Text style={styles.note}>🔒 Payments are encrypted and secure.</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>Checkout</Text>
+        <Text style={styles.note}>🔒 Payments are encrypted and secure.</Text>
 
-      {cart.stores.length > 1 && (
-        <Text style={styles.multiStoreNote}>
-          {cart.stores.length} stores in this order — each is delivered and tracked separately.
-        </Text>
-      )}
+        {cart.stores.length > 1 && (
+          <Text style={styles.multiStoreNote}>
+            {cart.stores.length} stores in this order — each is delivered and tracked separately.
+          </Text>
+        )}
 
-      <Text style={styles.label}>Card number</Text>
-      <TextInput style={styles.input} placeholderTextColor={colors.textMuted} value={card} onChangeText={setCard} />
+        <Text style={styles.label}>Card number</Text>
+        <TextInput style={styles.input} placeholderTextColor={colors.textMuted} value={card} onChangeText={setCard} />
 
-      <Text style={styles.label}>Expiry</Text>
-      <TextInput style={styles.input} placeholderTextColor={colors.textMuted} defaultValue="12/29" />
+        <Text style={styles.label}>Expiry</Text>
+        <TextInput style={styles.input} placeholderTextColor={colors.textMuted} defaultValue="12/29" />
 
-      <Text style={styles.label}>CVC</Text>
-      <TextInput style={styles.input} placeholderTextColor={colors.textMuted} defaultValue="123" />
+        <Text style={styles.label}>CVC</Text>
+        <TextInput style={styles.input} placeholderTextColor={colors.textMuted} defaultValue="123" />
 
-      {cart.stores.map((store) => {
-        const storeTotal = store.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        return (
-          <View key={store.storeId} style={styles.storeRow}>
-            <Text style={styles.storeName}>{store.storeName}</Text>
-            <Text style={styles.storeTotal}>${storeTotal.toFixed(2)}</Text>
-          </View>
-        );
-      })}
+        {cart.stores.map((store) => {
+          const storeTotal = store.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          return (
+            <View key={store.storeId} style={styles.storeRow}>
+              <Text style={styles.storeName}>{store.storeName}</Text>
+              <Text style={styles.storeTotal}>${storeTotal.toFixed(2)}</Text>
+            </View>
+          );
+        })}
+      </ScrollView>
 
-      <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Order total</Text>
-        <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+      {/* Fixed footer, not scrolled content - so the Pay button always sits
+          just above the home-indicator / gesture-nav area instead of being
+          pushed behind it or requiring a scroll to reach. */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Order total</Text>
+          <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+        </View>
+
+        {error && <Text style={styles.error}>{error}</Text>}
+
+        <Pressable style={styles.payButton} onPress={handlePay} disabled={placing}>
+          {placing ? <ActivityIndicator color={colors.accentText} /> : <Text style={styles.payText}>Pay ${total.toFixed(2)}</Text>}
+        </Pressable>
       </View>
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable style={styles.payButton} onPress={handlePay} disabled={placing}>
-        {placing ? <ActivityIndicator color={colors.accentText} /> : <Text style={styles.payText}>Pay ${total.toFixed(2)}</Text>}
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background, padding: 22 },
+  safe: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { padding: 22, paddingBottom: 12 },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 4, color: colors.text },
   note: { color: colors.textSecondary, marginBottom: 18 },
   multiStoreNote: { color: colors.textSecondary, fontSize: 13, marginBottom: 14 },
@@ -101,7 +111,14 @@ const styles = StyleSheet.create({
   storeRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 18 },
   storeName: { color: colors.textSecondary, fontWeight: "700" },
   storeTotal: { color: colors.text, fontWeight: "700" },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, marginBottom: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  footer: {
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border
+  },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
   totalLabel: { color: colors.text },
   totalValue: { fontWeight: "700", fontSize: 18, color: colors.text },
   error: { color: colors.danger, marginBottom: 12 },

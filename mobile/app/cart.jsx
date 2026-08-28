@@ -1,5 +1,6 @@
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/colors";
@@ -8,6 +9,7 @@ export default function CartScreen() {
   const { cart, updateQuantity, removeStore, total, count } = useCart();
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   if (count === 0) {
     return (
@@ -70,7 +72,7 @@ export default function CartScreen() {
         })}
       </ScrollView>
 
-      <View style={styles.summary}>
+      <View style={[styles.summary, { paddingBottom: insets.bottom + 18 }]}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Order total</Text>
           <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
