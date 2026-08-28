@@ -12,7 +12,9 @@ public record ProductResponse(
         String category,
         BigDecimal price,
         String imageUrl,
-        Integer stock
+        Integer stock,
+        String badge,
+        BigDecimal originalPrice
 ) {
     public static ProductResponse from(Product product) {
         return new ProductResponse(
@@ -23,7 +25,9 @@ public record ProductResponse(
                 product.getCategory(),
                 product.getPrice(),
                 product.getImageUrl(),
-                product.getStock()
+                product.getStock(),
+                product.getBadge(),
+                product.getOriginalPrice()
         );
     }
 }

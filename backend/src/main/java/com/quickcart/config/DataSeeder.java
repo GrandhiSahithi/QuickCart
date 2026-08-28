@@ -78,6 +78,7 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
+        int productIndex = 0;
         for (StoreSeed seed : SEED_STORES) {
             Store store = new Store();
             store.setName(seed.name());
@@ -98,8 +99,27 @@ public class DataSeeder implements CommandLineRunner {
                 product.setPrice(new BigDecimal(p.price()));
                 product.setImageUrl(nextImage(p.pool()));
                 product.setStock(100);
+                applyBadge(product, productIndex++);
                 productRepository.save(product);
             }
+        }
+    }
+
+    // Deterministic badge rotation across the whole catalog - most products get
+    // no badge at all, a few cycle through the rest so it reads as varied but
+    // reproducible on every fresh seed.
+    private static final String[] BADGE_CYCLE = {
+            null, null, "BESTSELLER", null, null, "TRENDING", null, "NEW", "SALE"
+    };
+
+    private void applyBadge(Product product, int index) {
+        String badge = BADGE_CYCLE[index % BADGE_CYCLE.length];
+        if (badge == null) {
+            return;
+        }
+        product.setBadge(badge);
+        if ("SALE".equals(badge)) {
+            product.setOriginalPrice(product.getPrice().multiply(new BigDecimal("1.25")).setScale(2, java.math.RoundingMode.HALF_UP));
         }
     }
 
@@ -452,6 +472,23 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Latte", "Espresso with steamed milk", "4.49", "Drinks", "DRINKS")
             )),
 
+            new StoreSeed("Noodle Bar", Vertical.FOOD, "RAMEN", 4.5, 24, 0.031, -0.011, List.of(
+                    new ProductSeed("Shoyu Ramen", "Soy-based broth, chashu, nori", "12.99", "Ramen", "RAMEN"),
+                    new ProductSeed("Spicy Miso Ramen", "Rich miso broth with chili oil", "13.49", "Ramen", "RAMEN"),
+                    new ProductSeed("Vegetable Ramen", "Light broth, seasonal vegetables", "11.99", "Ramen", "RAMEN"),
+                    new ProductSeed("Chicken Karaage", "Japanese fried chicken bites", "7.99", "Appetizers", "RAMEN"),
+                    new ProductSeed("Gyoza (6)", "Pan-fried pork dumplings", "6.99", "Appetizers", "SUSHI"),
+                    new ProductSeed("Iced Oolong Tea", "Roasted, lightly sweet", "2.99", "Drinks", "DRINKS")
+            )),
+            new StoreSeed("Casa Mexicana", Vertical.FOOD, "MEXICAN", 4.4, 24, -0.027, 0.014, List.of(
+                    new ProductSeed("Chicken Enchiladas", "Rolled tortillas, red sauce, cheese", "11.49", "Mains", "MEXICAN"),
+                    new ProductSeed("Beef Barbacoa Tacos (3)", "Slow-braised beef, onion, cilantro", "10.49", "Tacos", "MEXICAN"),
+                    new ProductSeed("Veggie Fajitas", "Grilled peppers & onions, tortillas", "10.99", "Mains", "MEXICAN"),
+                    new ProductSeed("Nachos Supreme", "Loaded with cheese, jalapeno, salsa", "8.99", "Appetizers", "MEXICAN"),
+                    new ProductSeed("Tres Leches Cake", "Classic soaked sponge cake", "5.99", "Desserts", "DESSERT"),
+                    new ProductSeed("Jamaica Agua Fresca", "Hibiscus flower water", "3.49", "Drinks", "DRINKS")
+            )),
+
             // ---------- GROCERY ----------
             new StoreSeed("FreshMart Grocery", Vertical.GROCERY, "FRUIT", 4.5, 15, -0.012, -0.005, List.of(
                     new ProductSeed("Fresh Bananas (1 bunch)", "Ripe yellow bananas", "2.49", "Fruits & Vegetables", "FRUIT"),
@@ -505,6 +542,21 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Farm Fresh Eggs (dozen)", "Pasture-raised", "6.49", "Dairy & Bakery", "VEGETABLES")
             )),
 
+            new StoreSeed("Neighborhood Grocer", Vertical.GROCERY, "GROCERY_GENERAL", 4.2, 14, 0.033, 0.024, List.of(
+                    new ProductSeed("Whole Wheat Bread", "Soft sandwich loaf", "3.79", "Dairy & Bakery", "BAKERY"),
+                    new ProductSeed("Peanut Butter (16oz)", "Creamy, no added sugar", "4.99", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Strawberry Jam (12oz)", "Made with real fruit", "3.99", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Orange Juice (64oz)", "100% pure squeezed", "4.99", "Beverages", "DRINKS"),
+                    new ProductSeed("Paper Towels (6 rolls)", "Extra absorbent", "8.99", "Household", "GROCERY_GENERAL")
+            )),
+            new StoreSeed("Berry Fields", Vertical.GROCERY, "FRUIT", 4.6, 17, -0.023, -0.030, List.of(
+                    new ProductSeed("Blueberries (pint)", "Sweet and plump", "4.99", "Fruits & Vegetables", "FRUIT"),
+                    new ProductSeed("Raspberries (6oz)", "Fresh and tart", "3.99", "Fruits & Vegetables", "FRUIT"),
+                    new ProductSeed("Mixed Berry Pack", "Strawberries, blueberries, blackberries", "7.99", "Fruits & Vegetables", "FRUIT"),
+                    new ProductSeed("Fresh Pineapple", "Peeled and cored, ready to eat", "4.49", "Fruits & Vegetables", "FRUIT"),
+                    new ProductSeed("Green Grapes (2 lb)", "Seedless, crisp", "5.49", "Fruits & Vegetables", "FRUIT")
+            )),
+
             // ---------- MEDICINE ----------
             new StoreSeed("City Pharmacy", Vertical.MEDICINE, "PHARMACY", 4.7, 20, -0.005, 0.008, List.of(
                     new ProductSeed("Pain Relief Tablets", "Fast-acting pain relief, 20 count", "6.99", "Pain & Fever", "PHARMACY"),
@@ -545,6 +597,19 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Melatonin Gummies", "Sleep support, 60 count", "8.99", "Vitamins & Supplements", "VITAMINS"),
                     new ProductSeed("Zinc Tablets", "Immune support, 100 count", "7.49", "Vitamins & Supplements", "VITAMINS"),
                     new ProductSeed("Baby Digital Thermometer", "Fast & gentle readings", "11.99", "Personal Care", "PHARMACY")
+            )),
+
+            new StoreSeed("Corner Drugstore", Vertical.MEDICINE, "PHARMACY", 4.3, 21, 0.026, -0.017, List.of(
+                    new ProductSeed("Sinus Relief Tablets", "Fast-acting decongestant", "6.49", "Cold & Allergy", "PHARMACY"),
+                    new ProductSeed("Motion Sickness Tablets", "Non-drowsy formula", "5.49", "Pain & Fever", "PHARMACY"),
+                    new ProductSeed("Adhesive Bandages (100 pack)", "Assorted sizes", "4.99", "First Aid", "PHARMACY"),
+                    new ProductSeed("Reusable Ice Pack", "Flexible gel pack", "6.99", "First Aid", "PHARMACY")
+            )),
+            new StoreSeed("Vital Health Pharmacy", Vertical.MEDICINE, "VITAMINS", 4.7, 18, -0.015, 0.029, List.of(
+                    new ProductSeed("Vitamin D3 Softgels", "2000 IU, 100 count", "9.99", "Vitamins & Supplements", "VITAMINS"),
+                    new ProductSeed("Magnesium Tablets", "Muscle & nerve support", "10.99", "Vitamins & Supplements", "VITAMINS"),
+                    new ProductSeed("Collagen Powder", "Unflavored, 30 servings", "18.99", "Vitamins & Supplements", "VITAMINS"),
+                    new ProductSeed("Kids Probiotic Drops", "Daily digestive support", "13.99", "Vitamins & Supplements", "VITAMINS")
             )),
 
             // ---------- SHOP (general) ----------
@@ -589,6 +654,19 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Art Supplies Kit", "Crayons, markers & paper", "16.99", "Toys & Games", "STATIONERY")
             )),
 
+            new StoreSeed("Everyday Needs", Vertical.SHOP, "HOME", 4.1, 19, 0.028, -0.026, List.of(
+                    new ProductSeed("Trash Bags (30 count)", "Heavy duty, drawstring", "9.99", "Home Essentials", "HOME"),
+                    new ProductSeed("Multi-Surface Cleaner", "24oz spray bottle", "5.49", "Home Essentials", "HOME"),
+                    new ProductSeed("Aluminum Foil (75 sq ft)", "Extra strength", "4.99", "Home Essentials", "HOME"),
+                    new ProductSeed("Sponges (6 pack)", "Non-scratch scrub sponges", "3.99", "Home Essentials", "HOME")
+            )),
+            new StoreSeed("Craft & Paper", Vertical.SHOP, "STATIONERY", 4.5, 22, -0.019, -0.032, List.of(
+                    new ProductSeed("Watercolor Paint Set", "24 vivid colors with brush", "12.99", "Stationery", "STATIONERY"),
+                    new ProductSeed("Spiral Sketchbook", "100 sheets, heavyweight paper", "8.99", "Stationery", "STATIONERY"),
+                    new ProductSeed("Washi Tape Set (10 rolls)", "Decorative patterns", "9.99", "Stationery", "STATIONERY"),
+                    new ProductSeed("Fountain Pen", "Smooth medium nib", "14.99", "Stationery", "STATIONERY")
+            )),
+
             // ---------- ELECTRONICS ----------
             new StoreSeed("TechHub Electronics", Vertical.ELECTRONICS, "ELECTRONICS", 4.5, 30, 0.013, 0.010, List.of(
                     new ProductSeed("Wireless Earbuds", "Bluetooth 5.0, 20h battery", "29.99", "Audio", "ELECTRONICS"),
@@ -623,6 +701,19 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Wireless Controller", "Compatible with PC & console", "34.99", "Gaming", "ELECTRONICS"),
                     new ProductSeed("Extended Mouse Pad", "Large, non-slip base", "12.99", "Gaming", "ELECTRONICS"),
                     new ProductSeed("HD Webcam", "1080p with built-in mic", "24.99", "Computing", "ELECTRONICS")
+            )),
+
+            new StoreSeed("Circuit City Express", Vertical.ELECTRONICS, "ELECTRONICS", 4.4, 25, 0.030, 0.019, List.of(
+                    new ProductSeed("Portable SSD (1TB)", "USB-C, compact external drive", "79.99", "Computing", "ELECTRONICS"),
+                    new ProductSeed("Laptop Sleeve", "13-14in neoprene sleeve", "17.99", "Accessories", "ELECTRONICS"),
+                    new ProductSeed("Smart Plug (2 pack)", "Wi-Fi enabled, app controlled", "19.99", "Accessories", "ELECTRONICS"),
+                    new ProductSeed("HDMI Cable (6ft)", "4K high-speed cable", "8.99", "Accessories", "ELECTRONICS")
+            )),
+            new StoreSeed("SoundWave Audio", Vertical.ELECTRONICS, "HEADPHONES", 4.6, 22, -0.024, -0.012, List.of(
+                    new ProductSeed("Studio Headphones", "Over-ear, flat response", "64.99", "Audio", "HEADPHONES"),
+                    new ProductSeed("True Wireless Earbuds", "ANC, 24h case battery", "44.99", "Audio", "HEADPHONES"),
+                    new ProductSeed("Portable Mini Speaker", "Clip-on, waterproof", "19.99", "Audio", "ELECTRONICS"),
+                    new ProductSeed("Headphone Stand", "Aluminum desktop stand", "14.99", "Accessories", "ELECTRONICS")
             )),
 
             // ---------- FASHION ----------
@@ -660,6 +751,19 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Canvas Tote Bag", "Durable everyday tote", "14.99", "Accessories", "FASHION")
             )),
 
+            new StoreSeed("Trend Setters", Vertical.FASHION, "FASHION", 4.3, 27, 0.021, -0.033, List.of(
+                    new ProductSeed("Oversized Blazer", "Tailored fit, versatile layer", "49.99", "Clothing", "FASHION"),
+                    new ProductSeed("Pleated Midi Skirt", "Lightweight, flowy fabric", "32.99", "Clothing", "FASHION"),
+                    new ProductSeed("Crossbody Bag", "Compact, adjustable strap", "27.99", "Accessories", "FASHION"),
+                    new ProductSeed("Statement Earrings", "Gold-tone, lightweight", "14.99", "Accessories", "FASHION")
+            )),
+            new StoreSeed("Foot Locker Lite", Vertical.FASHION, "SNEAKERS", 4.5, 26, -0.011, 0.032, List.of(
+                    new ProductSeed("High-Top Sneakers", "Retro basketball style", "59.99", "Footwear", "SNEAKERS"),
+                    new ProductSeed("Slip-On Sneakers", "Easy on-off, memory foam", "44.99", "Footwear", "SNEAKERS"),
+                    new ProductSeed("Athletic Socks (6 pack)", "Cushioned, moisture-wicking", "11.99", "Accessories", "FASHION"),
+                    new ProductSeed("Sneaker Cleaning Kit", "Brush, solution & wipes", "12.99", "Accessories", "SNEAKERS")
+            )),
+
             // ---------- BEAUTY ----------
             new StoreSeed("Glow Beauty Store", Vertical.BEAUTY, "COSMETICS", 4.6, 22, 0.018, 0.015, List.of(
                     new ProductSeed("Matte Lipstick", "Long-lasting, rich pigment", "13.99", "Makeup", "COSMETICS"),
@@ -690,6 +794,19 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Deodorant Stick", "24-hour protection", "5.99", "Personal Care", "SKINCARE")
             )),
 
+            new StoreSeed("Glamour Studio", Vertical.BEAUTY, "COSMETICS", 4.5, 23, 0.014, 0.030, List.of(
+                    new ProductSeed("Liquid Foundation", "Buildable medium coverage", "16.99", "Makeup", "COSMETICS"),
+                    new ProductSeed("Eyeshadow Palette", "12 blendable shades", "19.99", "Makeup", "COSMETICS"),
+                    new ProductSeed("Setting Spray", "All-day matte finish", "13.99", "Makeup", "COSMETICS"),
+                    new ProductSeed("Eyelash Curler", "Precision stainless steel", "6.99", "Makeup", "COSMETICS")
+            )),
+            new StoreSeed("Radiant Skin Co", Vertical.BEAUTY, "SKINCARE", 4.6, 24, -0.029, -0.021, List.of(
+                    new ProductSeed("Retinol Night Cream", "Anti-aging, 1oz", "22.99", "Skincare", "SKINCARE"),
+                    new ProductSeed("Hyaluronic Acid Serum", "Deep hydration, 1oz", "18.99", "Skincare", "SKINCARE"),
+                    new ProductSeed("Exfoliating Scrub", "Gentle, for all skin types", "11.99", "Skincare", "SKINCARE"),
+                    new ProductSeed("Under-Eye Patches (12 pairs)", "Cooling, de-puffing", "13.99", "Skincare", "SKINCARE")
+            )),
+
             // ---------- PETS ----------
             new StoreSeed("Pet Paradise", Vertical.PETS, "PETS", 4.5, 27, -0.018, 0.005, List.of(
                     new ProductSeed("Dry Dog Food (5 lb)", "Chicken & rice recipe", "18.99", "Food", "PETS"),
@@ -718,6 +835,18 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Small Pet Cage", "Wire cage with accessories", "44.99", "Habitat & Supplies", "PETS"),
                     new ProductSeed("Bird Cage Swing", "Colorful wooden perch swing", "7.99", "Toys & Accessories", "PETS"),
                     new ProductSeed("Chew Toys (3 pack)", "Safe for small animals", "6.99", "Toys & Accessories", "PETS")
+            )),
+            new StoreSeed("Furry Friends Market", Vertical.PETS, "PETS", 4.4, 26, 0.017, -0.028, List.of(
+                    new ProductSeed("Grain-Free Dog Food (10 lb)", "Salmon & sweet potato", "29.99", "Food", "PETS"),
+                    new ProductSeed("Dog Dental Chews", "Reduces plaque & tartar", "9.99", "Food", "PETS"),
+                    new ProductSeed("Orthopedic Pet Bed", "Memory foam, machine washable", "39.99", "Habitat & Supplies", "PETS"),
+                    new ProductSeed("Retractable Dog Leash", "16ft, one-button lock", "16.99", "Toys & Accessories", "PETS")
+            )),
+            new StoreSeed("The Pet Pantry", Vertical.PETS, "PETS", 4.3, 22, -0.031, 0.020, List.of(
+                    new ProductSeed("Kitten Starter Kit", "Food, toy & grooming brush", "24.99", "Food", "PETS"),
+                    new ProductSeed("Freeze-Dried Cat Treats", "Single-ingredient, grain-free", "8.99", "Food", "PETS"),
+                    new ProductSeed("Cat Carrier", "Ventilated, airline approved", "34.99", "Habitat & Supplies", "PETS"),
+                    new ProductSeed("Interactive Feather Wand", "Encourages active play", "6.99", "Toys & Accessories", "PETS")
             ))
     );
 }

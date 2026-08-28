@@ -38,4 +38,10 @@ public class Product {
 
     @Column(nullable = false)
     private Integer stock = 0;
+
+    // Nullable - most products have no badge. One of BESTSELLER/TRENDING/NEW/SALE.
+    private String badge;
+
+    // Nullable - only set for SALE-badged products, rendered as a strikethrough price.
+    private BigDecimal originalPrice;
 }

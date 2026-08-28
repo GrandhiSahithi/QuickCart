@@ -24,7 +24,7 @@ export default function LocationPicker() {
       <button type="button" className="location-trigger" onClick={() => setOpen((o) => !o)}>
         <span className="location-trigger-icon">📍</span>
         <span className="location-trigger-text">
-          <strong>{location ? location.label : "Set delivery location"}</strong>
+          <strong>{location ? location.label : loading ? "Detecting your location…" : "Set delivery location"}</strong>
           <span>{location ? "Tap to change" : "Click here to enter a ZIP code"}</span>
         </span>
         <span className="location-trigger-chevron">{open ? "▲" : "▼"}</span>

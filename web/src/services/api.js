@@ -17,7 +17,12 @@ export default api;
 export const authApi = {
   signup: (payload) => api.post("/auth/signup", payload).then((r) => r.data),
   adminSignup: (payload) => api.post("/auth/admin-signup", payload).then((r) => r.data),
-  login: (payload) => api.post("/auth/login", payload).then((r) => r.data)
+  // Returns an OTP challenge ({ email, expiresInSeconds }), not a session - see verifyOtp.
+  login: (payload) => api.post("/auth/login", payload).then((r) => r.data),
+  verifyOtp: (payload) => api.post("/auth/verify-otp", payload).then((r) => r.data),
+  resendOtp: (payload) => api.post("/auth/resend-otp", payload).then((r) => r.data),
+  forgotPassword: (payload) => api.post("/auth/forgot-password", payload).then((r) => r.data),
+  resetPassword: (payload) => api.post("/auth/reset-password", payload).then((r) => r.data)
 };
 
 export const accountApi = {

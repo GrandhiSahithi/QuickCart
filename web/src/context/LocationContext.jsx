@@ -43,9 +43,9 @@ export function LocationProvider({ children }) {
     }
   }
 
-  function useDeviceLocation() {
+  function useDeviceLocation({ silent = false } = {}) {
     if (!navigator.geolocation) {
-      setError("Location access isn't available in this browser.");
+      if (!silent) setError("Location access isn't available in this browser.");
       return;
     }
 
@@ -56,6 +56,7 @@ export function LocationProvider({ children }) {
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         let label = "Current location";
+        let zip = null;
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=jsonv2`
@@ -63,19 +64,33 @@ export function LocationProvider({ children }) {
           const data = await res.json();
           const city = data.address?.city || data.address?.town || data.address?.village;
           const state = data.address?.state;
-          if (city && state) label = `${city}, ${state}`;
+          zip = data.address?.postcode || null;
+          if (city && state) {
+            label = zip ? `${city}, ${state} ${zip}` : `${city}, ${state}`;
+          }
         } catch {
           // Keep the generic label if reverse geocoding fails.
         }
-        setLocation({ lat: latitude, lng: longitude, label });
+        setLocation({ lat: latitude, lng: longitude, label, zip });
         setLoading(false);
       },
       () => {
-        setError("Couldn't access your location. Check your browser permissions.");
+        // A silent first-load attempt shouldn't surface a permission-denied
+        // error - the manual "Use my current location" flow still can.
+        if (!silent) setError("Couldn't access your location. Check your browser permissions.");
         setLoading(false);
       }
     );
   }
+
+  // Try to auto-detect the pincode on first load instead of requiring the
+  // user to type one, falling back silently to manual ZIP entry.
+  useEffect(() => {
+    if (!location) {
+      useDeviceLocation({ silent: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function clearLocation() {
     setLocation(null);
