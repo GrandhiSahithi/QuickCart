@@ -12,7 +12,8 @@ public record StoreResponse(
         Double rating,
         Integer etaMinutes,
         Double lat,
-        Double lng
+        Double lng,
+        Integer deliveryFeeDiscountPercent
 ) {
     public static StoreResponse from(Store store, Double viewerLat, Double viewerLng) {
         return new StoreResponse(
@@ -23,7 +24,8 @@ public record StoreResponse(
                 store.getRating(),
                 store.getEtaMinutes(),
                 GeoUtil.translateLat(store.getLat(), viewerLat),
-                GeoUtil.translateLng(store.getLng(), viewerLng)
+                GeoUtil.translateLng(store.getLng(), viewerLng),
+                store.getDeliveryFeeDiscountPercent()
         );
     }
 }

@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import HeroCarousel from "../components/HeroCarousel";
 import { VERTICALS } from "../constants/verticals";
+
+const CTA = [
+  { label: "Get Started", to: "/signup" },
+  { label: "Login", to: "/login", variant: "secondary" }
+];
 
 const SLIDES = [
   {
@@ -8,28 +13,56 @@ const SLIDES = [
     eyebrow: "DELIVERED FAST",
     heading: "Food, groceries, medicine & more — delivered in minutes.",
     sub: "Track your order live on the map from the moment it's placed to the second it's at your door.",
-    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=70"
+    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=70",
+    cta: CTA
   },
   {
     id: "everything",
     eyebrow: "EVERY CATEGORY, ONE APP",
     heading: "From dinner tonight to a new pair of sneakers.",
     sub: "Food, grocery, medicine, shop, tech, fashion, beauty & pets — stop juggling apps.",
-    image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1600&q=70"
+    image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1600&q=70",
+    cta: CTA
   },
   {
     id: "tracking",
     eyebrow: "LIVE TRACKING",
     heading: "Watch it move, door to door.",
     sub: "Every order is tracked on a live map from the store to your doorstep.",
-    image: "https://images.unsplash.com/photo-1579113800032-c38bd7635818?auto=format&fit=crop&w=1600&q=70"
+    image: "https://images.unsplash.com/photo-1579113800032-c38bd7635818?auto=format&fit=crop&w=1600&q=70",
+    cta: CTA
   },
   {
     id: "secure",
     eyebrow: "PAYMENTS PROTECTED",
     heading: "Checkout that's encrypted end-to-end.",
     sub: "Card, Apple Pay, Google Pay or cash on delivery — every payment is protected.",
-    image: "https://images.unsplash.com/photo-1555664424-778a1e5e1b48?auto=format&fit=crop&w=1600&q=70"
+    image: "https://images.unsplash.com/photo-1555664424-778a1e5e1b48?auto=format&fit=crop&w=1600&q=70",
+    cta: CTA
+  },
+  {
+    id: "bogo",
+    eyebrow: "BUY ONE GET ONE",
+    heading: "BOGO deals across your favorite spots.",
+    sub: "Pizza, pharmacy, electronics & more — look for the BOGO tag on select items.",
+    image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1600&q=70",
+    cta: CTA
+  },
+  {
+    id: "delivery",
+    eyebrow: "DELIVERY DEALS",
+    heading: "Some stores deliver free. Others knock off the fee.",
+    sub: "Look for the delivery badge on a store's card before you order.",
+    image: "https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=1600&q=70",
+    cta: CTA
+  },
+  {
+    id: "everyday",
+    eyebrow: "NEW EVERY WEEK",
+    heading: "Hundreds of stores, thousands of items.",
+    sub: "From weekly groceries to a last-minute gift — it's all here.",
+    image: "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=1600&q=70",
+    cta: CTA
   }
 ];
 
@@ -51,68 +84,9 @@ const OFFERS = [
 ];
 
 export default function Landing() {
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const slideCount = SLIDES.length;
-
-  useEffect(() => {
-    if (paused) return undefined;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % slideCount), 5000);
-    return () => clearInterval(timer);
-  }, [paused, slideCount]);
-
-  function goTo(i) {
-    setIndex((i + slideCount) % slideCount);
-  }
-
-  const slide = SLIDES[index];
-
   return (
     <main className="landing">
-      <section
-        className="landing-hero-carousel"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-      >
-        {SLIDES.map((s, i) => (
-          <div
-            key={s.id}
-            className={`landing-hero-slide${i === index ? " active" : ""}`}
-            style={{
-              backgroundImage: `linear-gradient(135deg, rgba(20, 22, 26, 0.85), rgba(20, 22, 26, 0.97)), url(${s.image})`
-            }}
-          />
-        ))}
-
-        <div className="landing-hero-content">
-          <p className="eyebrow">{slide.eyebrow}</p>
-          <h1>{slide.heading}</h1>
-          <p className="landing-hero-sub">{slide.sub}</p>
-          <div className="landing-cta-row">
-            <Link to="/signup" className="primary-button landing-cta">Get Started</Link>
-            <Link to="/login" className="secondary-button landing-cta">Login</Link>
-          </div>
-        </div>
-
-        <button type="button" className="landing-hero-arrow landing-hero-arrow-prev" onClick={() => goTo(index - 1)} aria-label="Previous slide">
-          ‹
-        </button>
-        <button type="button" className="landing-hero-arrow landing-hero-arrow-next" onClick={() => goTo(index + 1)} aria-label="Next slide">
-          ›
-        </button>
-
-        <div className="landing-hero-dots">
-          {SLIDES.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              className={i === index ? "active" : ""}
-              onClick={() => goTo(i)}
-              aria-label={`Go to slide ${i + 1}`}
-            />
-          ))}
-        </div>
-      </section>
+      <HeroCarousel slides={SLIDES} />
 
       <div className="page-container">
         <section>

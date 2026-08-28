@@ -38,4 +38,8 @@ public class Store {
 
     @Column(nullable = false)
     private Double lng;
+
+    // Nullable - percent off the flat delivery fee for orders from this store
+    // (0-100). null/0 means no store-level delivery discount.
+    private Integer deliveryFeeDiscountPercent;
 }

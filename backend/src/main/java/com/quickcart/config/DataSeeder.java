@@ -74,46 +74,159 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         seedAdmin();
 
-        if (storeRepository.count() > 0) {
-            return;
-        }
-
+        // Per-store, not a single "already seeded?" guard - so adding new
+        // stores/products to this file and redeploying actually grows the
+        // live catalog instead of being silently skipped because the table
+        // is already non-empty. Stores that already exist still get their
+        // delivery discount and product promo pattern (re)synced below, so
+        // adding STORE_PROMOS/STORE_DELIVERY_DISCOUNTS entries for a store
+        // that was seeded long ago takes effect on the next deploy too.
         int productIndex = 0;
         for (StoreSeed seed : SEED_STORES) {
-            Store store = new Store();
-            store.setName(seed.name());
-            store.setVertical(seed.vertical());
-            store.setImageUrl(nextImage(seed.pool()));
-            store.setRating(seed.rating());
-            store.setEtaMinutes(seed.etaMinutes());
-            store.setLat(CENTER_LAT + seed.latOffset());
-            store.setLng(CENTER_LNG + seed.lngOffset());
-            storeRepository.save(store);
+            Store store = storeRepository.findByName(seed.name()).orElse(null);
+            boolean isNewStore = store == null;
+            String promoPattern = STORE_PROMOS.get(seed.name());
+            Integer deliveryDiscount = STORE_DELIVERY_DISCOUNTS.get(seed.name());
 
+            if (isNewStore) {
+                store = new Store();
+                store.setName(seed.name());
+                store.setVertical(seed.vertical());
+                store.setImageUrl(nextImage(seed.pool()));
+                store.setRating(seed.rating());
+                store.setEtaMinutes(seed.etaMinutes());
+                store.setLat(CENTER_LAT + seed.latOffset());
+                store.setLng(CENTER_LNG + seed.lngOffset());
+            }
+            // Only touch a pre-existing store's row if it now has a delivery
+            // discount assigned - otherwise leave it (and its products,
+            // below) completely alone so every startup isn't rewriting the
+            // whole catalog.
+            if (isNewStore || deliveryDiscount != null) {
+                store.setDeliveryFeeDiscountPercent(deliveryDiscount);
+                storeRepository.save(store);
+            }
+
+            Map<String, Product> existingProducts = isNewStore
+                    ? Map.of()
+                    : productRepository.findByStoreId(store.getId()).stream()
+                            .collect(java.util.stream.Collectors.toMap(Product::getName, p -> p, (a, b) -> a));
+
+            int storeLocalIndex = 0;
             for (ProductSeed p : seed.products()) {
-                Product product = new Product();
-                product.setStore(store);
-                product.setName(p.name());
-                product.setDescription(p.description());
-                product.setCategory(p.category());
-                product.setPrice(new BigDecimal(p.price()));
-                product.setImageUrl(nextImage(p.pool()));
-                product.setStock(100);
-                applyBadge(product, productIndex++);
-                productRepository.save(product);
+                Product product = existingProducts.get(p.name());
+                boolean isNewProduct = product == null;
+
+                if (isNewProduct) {
+                    product = new Product();
+                    product.setStore(store);
+                    product.setName(p.name());
+                    product.setDescription(p.description());
+                    product.setCategory(p.category());
+                    product.setPrice(new BigDecimal(p.price()));
+                    product.setImageUrl(nextImage(p.pool()));
+                    product.setStock(100);
+                }
+
+                // A brand new product needs a badge computed from scratch;
+                // an existing product only needs re-syncing if its store has
+                // an explicit promo pattern that may have changed since it
+                // was first seeded. Otherwise leave it untouched.
+                if (isNewProduct || promoPattern != null) {
+                    product.setBadge(null);
+                    product.setOriginalPrice(null);
+                    applyBadge(product, productIndex, promoPattern, storeLocalIndex);
+                    productRepository.save(product);
+                }
+
+                productIndex++;
+                storeLocalIndex++;
             }
         }
     }
 
-    // Deterministic badge rotation across the whole catalog - most products get
-    // no badge at all, a few cycle through the rest so it reads as varied but
-    // reproducible on every fresh seed.
+    // Deterministic badge rotation across stores with no explicit promo
+    // pattern - most products get no badge at all, a few cycle through the
+    // rest so it reads as varied but reproducible on every fresh seed.
     private static final String[] BADGE_CYCLE = {
             null, null, "BESTSELLER", null, null, "TRENDING", null, "NEW", "SALE"
     };
 
-    private void applyBadge(Product product, int index) {
-        String badge = BADGE_CYCLE[index % BADGE_CYCLE.length];
+    // Stores with a deliberate, heavier promo running across a chunk of
+    // their menu - "BOGO" (buy one get one free) or "SALE" (~30% off,
+    // shown as a strikethrough original price) - instead of every store
+    // getting the same generic discount.
+    private static final Map<String, String> STORE_PROMOS = Map.ofEntries(
+            Map.entry("Tony's Pizzeria", "BOGO"),
+            Map.entry("Sakura Sushi", "SALE"),
+            Map.entry("Taco Fiesta", "BOGO"),
+            Map.entry("Curry Palace", "SALE"),
+            Map.entry("Dim Sum House", "SALE"),
+            Map.entry("Bombay Street Food", "BOGO"),
+            Map.entry("Seoul Grill", "SALE"),
+            Map.entry("FreshMart Grocery", "BOGO"),
+            Map.entry("Organic Basket", "SALE"),
+            Map.entry("Metro Supermarket", "BOGO"),
+            Map.entry("Dairy Delight", "SALE"),
+            Map.entry("City Pharmacy", "BOGO"),
+            Map.entry("Wellness Rx", "SALE"),
+            Map.entry("Care Plus Rx", "SALE"),
+            Map.entry("Daily Essentials Shop", "BOGO"),
+            Map.entry("Stationery World", "SALE"),
+            Map.entry("Office Supply Depot", "SALE"),
+            Map.entry("TechHub Electronics", "BOGO"),
+            Map.entry("Gadget Zone", "SALE"),
+            Map.entry("Drone & Photo Hub", "SALE"),
+            Map.entry("Urban Threads", "BOGO"),
+            Map.entry("StyleHouse", "SALE"),
+            Map.entry("Denim Republic", "BOGO"),
+            Map.entry("Glow Beauty Store", "BOGO"),
+            Map.entry("Pure Skincare", "SALE"),
+            Map.entry("Fragrance Bar", "SALE"),
+            Map.entry("Pet Paradise", "BOGO"),
+            Map.entry("Happy Paws", "SALE"),
+            Map.entry("Dog House Depot", "BOGO")
+    );
+
+    // Stores with a store-wide delivery fee discount (percent off the flat
+    // fee - 100 means fully free) shown as a badge on the store card.
+    private static final Map<String, Integer> STORE_DELIVERY_DISCOUNTS = Map.ofEntries(
+            Map.entry("Sunrise Cafe", 100),
+            Map.entry("Golden Wok", 30),
+            Map.entry("Waffle & Brew", 100),
+            Map.entry("FreshMart Grocery", 50),
+            Map.entry("Value Grocer", 20),
+            Map.entry("Metro Supermarket", 30),
+            Map.entry("City Pharmacy", 100),
+            Map.entry("HealthFirst Drugstore", 30),
+            Map.entry("Rapid Rx", 50),
+            Map.entry("Daily Essentials Shop", 20),
+            Map.entry("Circuit City Express", 50),
+            Map.entry("PC Parts Plus", 20),
+            Map.entry("StyleHouse", 30),
+            Map.entry("Foot Locker Lite", 20),
+            Map.entry("Luxe Boutique", 30),
+            Map.entry("Glow Beauty Store", 50),
+            Map.entry("Barber's Choice", 50),
+            Map.entry("Furry Friends Market", 30)
+    );
+
+    private void applyBadge(Product product, int globalIndex, String promoPattern, int storeLocalIndex) {
+        if ("BOGO".equals(promoPattern)) {
+            if (storeLocalIndex % 3 == 0) {
+                product.setBadge("BOGO");
+            }
+            return;
+        }
+        if ("SALE".equals(promoPattern)) {
+            if (storeLocalIndex % 3 == 0) {
+                product.setBadge("SALE");
+                product.setOriginalPrice(product.getPrice().multiply(new BigDecimal("1.30")).setScale(2, java.math.RoundingMode.HALF_UP));
+            }
+            return;
+        }
+
+        String badge = BADGE_CYCLE[globalIndex % BADGE_CYCLE.length];
         if (badge == null) {
             return;
         }
@@ -847,6 +960,186 @@ public class DataSeeder implements CommandLineRunner {
                     new ProductSeed("Freeze-Dried Cat Treats", "Single-ingredient, grain-free", "8.99", "Food", "PETS"),
                     new ProductSeed("Cat Carrier", "Ventilated, airline approved", "34.99", "Habitat & Supplies", "PETS"),
                     new ProductSeed("Interactive Feather Wand", "Encourages active play", "6.99", "Toys & Accessories", "PETS")
+            )),
+
+            // ---------- FOOD (more) ----------
+            new StoreSeed("Bombay Street Food", Vertical.FOOD, "INDIAN", 4.5, 27, 0.038, -0.007, List.of(
+                    new ProductSeed("Pav Bhaji", "Spiced mashed vegetables, buttered buns", "7.99", "Street Food", "INDIAN"),
+                    new ProductSeed("Chole Bhature", "Spiced chickpeas, fried bread", "8.99", "Street Food", "INDIAN"),
+                    new ProductSeed("Dahi Puri", "Crispy shells, yogurt, chutneys", "6.49", "Street Food", "INDIAN"),
+                    new ProductSeed("Chicken 65", "Spicy deep-fried chicken bites", "9.99", "Appetizers", "INDIAN"),
+                    new ProductSeed("Masala Dosa", "Crispy rice crepe, spiced potato", "8.49", "Street Food", "INDIAN"),
+                    new ProductSeed("Filter Coffee", "South Indian style, strong & sweet", "2.99", "Drinks", "DRINKS"),
+                    new ProductSeed("Gulab Jamun (4 pc)", "Warm milk dumplings in syrup", "4.99", "Desserts", "DESSERT")
+            )),
+            new StoreSeed("Seoul Grill", Vertical.FOOD, "CHINESE", 4.6, 29, -0.036, 0.031, List.of(
+                    new ProductSeed("Korean Fried Chicken", "Double-fried, sweet-spicy glaze", "12.99", "Mains", "CHINESE"),
+                    new ProductSeed("Bibimbap Bowl", "Rice, vegetables, egg, gochujang", "11.99", "Mains", "CHINESE"),
+                    new ProductSeed("Bulgogi Beef", "Marinated grilled beef", "13.99", "Mains", "CHINESE"),
+                    new ProductSeed("Kimchi Fried Rice", "Spicy fermented cabbage, egg", "10.49", "Mains", "CHINESE"),
+                    new ProductSeed("Japchae Noodles", "Stir-fried glass noodles", "9.99", "Noodles & Rice", "RAMEN"),
+                    new ProductSeed("Iced Yuzu Tea", "Citrusy and refreshing", "3.49", "Drinks", "DRINKS")
+            )),
+            new StoreSeed("Pasta Palazzo", Vertical.FOOD, "PIZZA", 4.4, 26, 0.005, 0.036, List.of(
+                    new ProductSeed("Spaghetti Carbonara", "Egg, pancetta, parmesan", "13.49", "Pasta", "PIZZA"),
+                    new ProductSeed("Fettuccine Alfredo", "Creamy parmesan sauce", "12.99", "Pasta", "PIZZA"),
+                    new ProductSeed("Lasagna", "Layered beef & ricotta, baked", "14.49", "Pasta", "PIZZA"),
+                    new ProductSeed("Chicken Parmesan", "Breaded chicken, marinara, mozzarella", "15.49", "Mains", "PIZZA"),
+                    new ProductSeed("Garlic Knots", "Baked dough, garlic butter", "5.49", "Appetizers", "BAKERY"),
+                    new ProductSeed("Tiramisu", "Classic Italian dessert", "6.99", "Desserts", "DESSERT")
+            )),
+            new StoreSeed("Waffle & Brew", Vertical.FOOD, "BREAKFAST", 4.7, 16, -0.008, -0.037, List.of(
+                    new ProductSeed("Belgian Waffle Combo", "Waffle, eggs & bacon", "10.49", "Breakfast Classics", "BREAKFAST"),
+                    new ProductSeed("Chicken & Waffles", "Crispy chicken, maple syrup", "12.99", "Breakfast Classics", "BREAKFAST"),
+                    new ProductSeed("French Toast", "Cinnamon-dusted, berry compote", "9.49", "Breakfast Classics", "BREAKFAST"),
+                    new ProductSeed("Iced Caramel Latte", "Espresso, milk, caramel drizzle", "4.99", "Drinks", "DRINKS"),
+                    new ProductSeed("Cold Brew Coffee", "Smooth, slow-steeped", "4.49", "Drinks", "DRINKS")
+            )),
+
+            // ---------- GROCERY (more) ----------
+            new StoreSeed("Metro Supermarket", Vertical.GROCERY, "GROCERY_GENERAL", 4.3, 16, 0.040, 0.002, List.of(
+                    new ProductSeed("Basmati Rice (10 lb)", "Aromatic long grain rice", "12.99", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Pasta Sauce (24oz)", "Classic marinara", "3.99", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Frozen Pizza", "Thin crust pepperoni", "6.99", "Frozen", "GROCERY_GENERAL"),
+                    new ProductSeed("Ice Cream Tub", "Vanilla bean, 1.5 quart", "5.99", "Frozen", "GROCERY_GENERAL"),
+                    new ProductSeed("Canned Tuna (4 pack)", "In water, ready to eat", "5.49", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Sparkling Lemonade (6 pack)", "Lightly carbonated", "6.99", "Beverages", "DRINKS")
+            )),
+            new StoreSeed("Dairy Delight", Vertical.GROCERY, "GROCERY_GENERAL", 4.4, 13, -0.002, 0.042, List.of(
+                    new ProductSeed("Whole Milk (1 gallon)", "Farm fresh whole milk", "3.49", "Dairy", "GROCERY_GENERAL"),
+                    new ProductSeed("Butter (1 lb)", "Salted, creamy", "4.99", "Dairy", "GROCERY_GENERAL"),
+                    new ProductSeed("Shredded Cheese (16oz)", "Mexican blend", "5.49", "Dairy", "GROCERY_GENERAL"),
+                    new ProductSeed("Greek Yogurt (32oz)", "Plain, high-protein", "5.99", "Dairy", "GROCERY_GENERAL"),
+                    new ProductSeed("Cottage Cheese", "Low-fat, 16oz", "3.99", "Dairy", "GROCERY_GENERAL")
+            )),
+            new StoreSeed("Global Pantry", Vertical.GROCERY, "GROCERY_GENERAL", 4.2, 17, 0.021, -0.039, List.of(
+                    new ProductSeed("Coconut Milk (13.5oz)", "Rich and creamy", "2.99", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Soy Sauce (16oz)", "Naturally brewed", "3.49", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Curry Paste", "Red curry, 4oz jar", "4.99", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Rice Noodles", "Thin, for stir-fry & soup", "3.99", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Chili Oil", "Crispy chili, 8oz", "5.49", "Pantry", "GROCERY_GENERAL"),
+                    new ProductSeed("Jasmine Rice (5 lb)", "Fragrant long grain", "8.99", "Pantry", "GROCERY_GENERAL")
+            )),
+            new StoreSeed("Corner Bodega", Vertical.GROCERY, "GROCERY_GENERAL", 4.0, 11, -0.041, -0.006, List.of(
+                    new ProductSeed("Potato Chips", "Classic salted", "3.99", "Snacks", "GROCERY_GENERAL"),
+                    new ProductSeed("Candy Bar Variety Pack", "Assorted favorites", "6.99", "Snacks", "GROCERY_GENERAL"),
+                    new ProductSeed("Bottled Water (12 pack)", "Purified spring water", "5.99", "Beverages", "DRINKS"),
+                    new ProductSeed("Iced Tea (6 pack)", "Lemon flavor", "5.49", "Beverages", "DRINKS"),
+                    new ProductSeed("Instant Coffee", "Medium roast, 7oz jar", "6.99", "Pantry", "GROCERY_GENERAL")
+            )),
+
+            // ---------- MEDICINE (more) ----------
+            new StoreSeed("Neighborhood Pharmacy", Vertical.MEDICINE, "PHARMACY", 4.5, 22, 0.033, 0.028, List.of(
+                    new ProductSeed("Acetaminophen Tablets", "500mg, 50 count", "5.49", "Pain & Fever", "PHARMACY"),
+                    new ProductSeed("Cough Drops (30 count)", "Honey lemon", "3.99", "Cold & Allergy", "PHARMACY"),
+                    new ProductSeed("Allergy Eye Drops", "Fast itch relief", "6.99", "Cold & Allergy", "PHARMACY"),
+                    new ProductSeed("Muscle Rub Cream", "Fast-acting relief, 4oz", "8.49", "Pain & Fever", "PHARMACY")
+            )),
+            new StoreSeed("Care Plus Rx", Vertical.MEDICINE, "VITAMINS", 4.6, 20, -0.026, -0.033, List.of(
+                    new ProductSeed("Fish Oil Capsules", "Omega-3, 90 softgels", "11.99", "Vitamins & Supplements", "VITAMINS"),
+                    new ProductSeed("Calcium + Vitamin D", "Bone health, 100 count", "9.99", "Vitamins & Supplements", "VITAMINS"),
+                    new ProductSeed("Iron Supplement", "Gentle formula, 60 count", "8.49", "Vitamins & Supplements", "VITAMINS"),
+                    new ProductSeed("Biotin Gummies", "Hair, skin & nails support", "10.99", "Vitamins & Supplements", "VITAMINS")
+            )),
+            new StoreSeed("Rapid Rx", Vertical.MEDICINE, "PHARMACY", 4.3, 14, 0.015, -0.041, List.of(
+                    new ProductSeed("Pain Relief Gel", "Topical, fast absorbing", "7.49", "Pain & Fever", "PHARMACY"),
+                    new ProductSeed("Blister Pack Bandages", "Assorted sizes, 30 count", "4.49", "First Aid", "PHARMACY"),
+                    new ProductSeed("Digital Ear Thermometer", "1-second reading", "19.99", "Personal Care", "PHARMACY"),
+                    new ProductSeed("Cold Compress Wrap", "Reusable, adjustable strap", "8.99", "First Aid", "PHARMACY")
+            )),
+
+            // ---------- SHOP (more) ----------
+            new StoreSeed("Kitchen & Home Co", Vertical.SHOP, "HOME", 4.4, 23, 0.037, -0.019, List.of(
+                    new ProductSeed("Non-Stick Frying Pan", "10in, even heat distribution", "22.99", "Kitchen", "HOME"),
+                    new ProductSeed("Cutlery Set (12 piece)", "Stainless steel", "24.99", "Kitchen", "HOME"),
+                    new ProductSeed("Glass Food Containers (5 pack)", "Airtight, microwave-safe", "18.99", "Kitchen", "HOME"),
+                    new ProductSeed("Cutting Board Set", "Bamboo, 3 sizes", "14.99", "Kitchen", "HOME")
+            )),
+            new StoreSeed("Office Supply Depot", Vertical.SHOP, "STATIONERY", 4.3, 20, -0.033, 0.010, List.of(
+                    new ProductSeed("Printer Paper (500 sheets)", "Bright white, 20lb", "8.99", "Stationery", "STATIONERY"),
+                    new ProductSeed("Stapler & Staples Set", "Compact desktop stapler", "9.99", "Stationery", "STATIONERY"),
+                    new ProductSeed("File Folders (25 pack)", "Letter size, assorted colors", "7.99", "Stationery", "STATIONERY"),
+                    new ProductSeed("Whiteboard Markers (8 pack)", "Low-odor, assorted colors", "6.99", "Stationery", "STATIONERY")
+            )),
+            new StoreSeed("Garden & Patio", Vertical.SHOP, "HOME", 4.5, 26, 0.009, 0.040, List.of(
+                    new ProductSeed("Potted Succulent Set", "3 assorted mini succulents", "16.99", "Garden", "HOME"),
+                    new ProductSeed("Garden Hose (50ft)", "Kink-resistant, expandable", "24.99", "Garden", "HOME"),
+                    new ProductSeed("Outdoor Solar Lights (6 pack)", "Auto on/off, warm white", "19.99", "Garden", "HOME"),
+                    new ProductSeed("Ceramic Planter", "10in, drainage hole", "12.99", "Garden", "HOME")
+            )),
+
+            // ---------- ELECTRONICS (more) ----------
+            new StoreSeed("Smart Home Store", Vertical.ELECTRONICS, "ELECTRONICS", 4.5, 24, -0.038, -0.023, List.of(
+                    new ProductSeed("Smart Doorbell Camera", "1080p, motion alerts", "59.99", "Smart Home", "ELECTRONICS"),
+                    new ProductSeed("Smart Plug (2 pack)", "Wi-Fi enabled, app controlled", "19.99", "Smart Home", "ELECTRONICS"),
+                    new ProductSeed("Smart Light Bulbs (4 pack)", "Color-changing, voice control", "29.99", "Smart Home", "ELECTRONICS"),
+                    new ProductSeed("Wi-Fi Smart Thermostat", "Learns your schedule", "89.99", "Smart Home", "ELECTRONICS")
+            )),
+            new StoreSeed("Drone & Photo Hub", Vertical.ELECTRONICS, "ELECTRONICS", 4.6, 29, 0.026, 0.035, List.of(
+                    new ProductSeed("Mini Drone with Camera", "720p HD, beginner friendly", "89.99", "Drones", "ELECTRONICS"),
+                    new ProductSeed("Camera Gimbal Stabilizer", "3-axis smartphone gimbal", "69.99", "Cameras", "ELECTRONICS"),
+                    new ProductSeed("Extra Drone Battery", "Extended flight time", "24.99", "Drones", "ELECTRONICS"),
+                    new ProductSeed("Lens Filter Kit", "UV, polarizer & ND filters", "19.99", "Cameras", "ELECTRONICS")
+            )),
+            new StoreSeed("PC Parts Plus", Vertical.ELECTRONICS, "ELECTRONICS", 4.4, 21, -0.017, 0.038, List.of(
+                    new ProductSeed("Mechanical Keyboard", "Hot-swappable switches", "49.99", "Computing", "ELECTRONICS"),
+                    new ProductSeed("Gaming Monitor 24in", "144Hz, 1ms response", "179.99", "Computing", "ELECTRONICS"),
+                    new ProductSeed("RGB Case Fan (3 pack)", "Quiet, addressable RGB", "29.99", "Computing", "ELECTRONICS"),
+                    new ProductSeed("Laptop Cooling Pad", "Dual fan, adjustable height", "14.99", "Computing", "ELECTRONICS")
+            )),
+
+            // ---------- FASHION (more) ----------
+            new StoreSeed("Denim Republic", Vertical.FASHION, "FASHION", 4.5, 25, 0.041, 0.014, List.of(
+                    new ProductSeed("Straight Leg Jeans", "Classic mid-wash denim", "42.99", "Clothing", "FASHION"),
+                    new ProductSeed("Denim Jacket", "Cropped fit, light wash", "47.99", "Clothing", "FASHION"),
+                    new ProductSeed("Denim Shorts", "High-rise, distressed", "29.99", "Clothing", "FASHION"),
+                    new ProductSeed("Chambray Shirt", "Lightweight button-down", "34.99", "Clothing", "FASHION")
+            )),
+            new StoreSeed("Athletic Edge", Vertical.FASHION, "SNEAKERS", 4.6, 27, -0.013, -0.040, List.of(
+                    new ProductSeed("Performance Running Shoes", "Responsive cushioning", "64.99", "Footwear", "SNEAKERS"),
+                    new ProductSeed("Training Sneakers", "Stable base, breathable", "54.99", "Footwear", "SNEAKERS"),
+                    new ProductSeed("Athletic Shorts", "Moisture-wicking, 7in inseam", "24.99", "Clothing", "FASHION"),
+                    new ProductSeed("Moisture-Wicking Tee", "Lightweight performance fabric", "19.99", "Clothing", "FASHION")
+            )),
+            new StoreSeed("Luxe Boutique", Vertical.FASHION, "FASHION", 4.7, 30, 0.030, -0.028, List.of(
+                    new ProductSeed("Silk Blouse", "Elegant, relaxed fit", "44.99", "Clothing", "FASHION"),
+                    new ProductSeed("Tailored Trousers", "Wide leg, high-rise", "49.99", "Clothing", "FASHION"),
+                    new ProductSeed("Cashmere Scarf", "Soft, oversized wrap", "39.99", "Accessories", "FASHION"),
+                    new ProductSeed("Leather Clutch", "Structured evening bag", "54.99", "Accessories", "FASHION")
+            )),
+
+            // ---------- BEAUTY (more) ----------
+            new StoreSeed("Fragrance Bar", Vertical.BEAUTY, "COSMETICS", 4.6, 21, -0.007, 0.043, List.of(
+                    new ProductSeed("Eau de Parfum 50ml", "Warm floral-woody scent", "44.99", "Personal Care", "COSMETICS"),
+                    new ProductSeed("Travel Fragrance Set", "3 x 10ml minis", "29.99", "Personal Care", "COSMETICS"),
+                    new ProductSeed("Scented Body Mist", "Light, everyday wear", "16.99", "Personal Care", "COSMETICS"),
+                    new ProductSeed("Rollerball Perfume Trio", "Purse-friendly set of 3", "24.99", "Personal Care", "COSMETICS")
+            )),
+            new StoreSeed("K-Beauty Corner", Vertical.BEAUTY, "SKINCARE", 4.7, 23, 0.043, -0.002, List.of(
+                    new ProductSeed("Snail Mucin Essence", "Hydrating, repairing", "18.99", "Skincare", "SKINCARE"),
+                    new ProductSeed("Glass Skin Serum Set", "3-step glow routine", "24.99", "Skincare", "SKINCARE"),
+                    new ProductSeed("Sheet Mask Variety (10 pack)", "Assorted hydrating masks", "14.99", "Skincare", "SKINCARE"),
+                    new ProductSeed("Sleeping Mask", "Overnight moisture lock", "16.99", "Skincare", "SKINCARE")
+            )),
+            new StoreSeed("Barber's Choice", Vertical.BEAUTY, "SKINCARE", 4.4, 18, -0.030, -0.035, List.of(
+                    new ProductSeed("Beard Trimmer Kit", "Rechargeable, multiple guards", "29.99", "Personal Care", "SKINCARE"),
+                    new ProductSeed("Hair Clay Pomade", "Matte finish, strong hold", "12.99", "Personal Care", "SKINCARE"),
+                    new ProductSeed("Post-Shave Cologne", "Soothing, classic scent", "14.99", "Personal Care", "SKINCARE"),
+                    new ProductSeed("Grooming Scissors Set", "Precision stainless steel", "16.99", "Personal Care", "SKINCARE")
+            )),
+
+            // ---------- PETS (more) ----------
+            new StoreSeed("Dog House Depot", Vertical.PETS, "PETS", 4.5, 24, 0.036, 0.024, List.of(
+                    new ProductSeed("Large Breed Dog Food (15 lb)", "Chicken & rice recipe", "34.99", "Food", "PETS"),
+                    new ProductSeed("Dog Harness", "No-pull, adjustable", "16.99", "Toys & Accessories", "PETS"),
+                    new ProductSeed("Chew Bone Pack", "Long-lasting, natural", "9.99", "Food", "PETS"),
+                    new ProductSeed("Dog Raincoat", "Waterproof, reflective strip", "18.99", "Toys & Accessories", "PETS")
+            )),
+            new StoreSeed("Exotic Pets Supply", Vertical.PETS, "PETS", 4.3, 20, -0.041, 0.017, List.of(
+                    new ProductSeed("Reptile Heat Lamp", "Adjustable, ceramic socket", "22.99", "Habitat & Supplies", "PETS"),
+                    new ProductSeed("Terrarium Substrate", "Natural coconut fiber, 8qt", "12.99", "Habitat & Supplies", "PETS"),
+                    new ProductSeed("Turtle Food Pellets", "Balanced nutrition, 8oz", "8.99", "Food", "PETS"),
+                    new ProductSeed("Reptile Water Dish", "Easy-clean, ramp design", "6.99", "Habitat & Supplies", "PETS")
             ))
     );
 }

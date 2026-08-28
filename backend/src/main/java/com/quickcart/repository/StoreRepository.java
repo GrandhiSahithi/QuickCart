@@ -5,7 +5,9 @@ import com.quickcart.model.Vertical;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface StoreRepository extends JpaRepository<Store, Long> {
     List<Store> findByVertical(Vertical vertical);
+    Optional<Store> findByName(String name);
 }

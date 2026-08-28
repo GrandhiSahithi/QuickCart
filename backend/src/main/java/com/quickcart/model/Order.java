@@ -39,6 +39,17 @@ public class Order {
     @Column(nullable = false)
     private BigDecimal deliveryFee = BigDecimal.ZERO;
 
+    // Item total before any promotion is applied (BOGO already collapses
+    // billable quantity before this is computed, so it reflects what a
+    // receipt would call the subtotal).
+    @Column(nullable = false)
+    private BigDecimal subtotal = BigDecimal.ZERO;
+
+    // First-order discount amount, in dollars - zero unless this was the
+    // customer's first order.
+    @Column(nullable = false)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private Double storeLat;
 

@@ -1,13 +1,20 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-
-const DELIVERY_FEE = 2.99;
+import { storeApi } from "../services/api";
+import { computeCartPricing } from "../utils/pricing";
 
 export default function Cart() {
-  const { cart, updateQuantity, total, count } = useCart();
+  const { cart, updateQuantity, count } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [store, setStore] = useState(null);
+
+  useEffect(() => {
+    if (!cart.storeId) return;
+    storeApi.get(cart.storeId).then(setStore).catch(() => {});
+  }, [cart.storeId]);
 
   if (count === 0) {
     return (
@@ -29,8 +36,12 @@ export default function Cart() {
     navigate("/checkout");
   }
 
-  const deliveryFee = user?.premium ? 0 : DELIVERY_FEE;
-  const grandTotal = total + deliveryFee;
+  const pricing = computeCartPricing({
+    items: cart.items,
+    deliveryFeeDiscountPercent: store?.deliveryFeeDiscountPercent,
+    isFirstOrder: false,
+    isPremium: user?.premium
+  });
 
   return (
     <main className="page-container">
@@ -42,7 +53,10 @@ export default function Cart() {
           <div className="cart-item" key={item.id}>
             <div className="cart-item-image" style={{ backgroundImage: `url(${item.imageUrl})` }} />
             <div className="cart-item-details">
-              <strong>{item.name}</strong>
+              <strong>
+                {item.name}
+                {item.badge === "BOGO" && <span className="cart-item-bogo-tag">BOGO</span>}
+              </strong>
               <span>${item.price.toFixed(2)}</span>
             </div>
             <div className="quantity-control">
@@ -57,15 +71,32 @@ export default function Cart() {
       <div className="cart-summary">
         <div className="cart-subtotal-row">
           <span>Subtotal</span>
-          <span>${total.toFixed(2)}</span>
+          <span>${pricing.listSubtotal.toFixed(2)}</span>
         </div>
+        {pricing.bogoSavings > 0 && (
+          <div className="cart-subtotal-row cart-savings-row">
+            <span>Buy 1 Get 1 savings</span>
+            <span>-${pricing.bogoSavings.toFixed(2)}</span>
+          </div>
+        )}
         <div className="cart-subtotal-row">
           <span>Delivery fee</span>
-          <span>{deliveryFee === 0 ? "FREE with QuickCart+" : `$${deliveryFee.toFixed(2)}`}</span>
+          <span>
+            {user?.premium ? (
+              "FREE with QuickCart+"
+            ) : pricing.deliveryFeeOriginal ? (
+              <>
+                <s className="product-original-price">${pricing.deliveryFeeOriginal.toFixed(2)}</s>{" "}
+                {pricing.deliveryFee === 0 ? "FREE" : `$${pricing.deliveryFee.toFixed(2)}`}
+              </>
+            ) : (
+              `$${pricing.deliveryFee.toFixed(2)}`
+            )}
+          </span>
         </div>
         <div className="cart-total-row">
           <span>Total</span>
-          <strong>${grandTotal.toFixed(2)}</strong>
+          <strong>${pricing.total.toFixed(2)}</strong>
         </div>
         <button className="primary-button" onClick={handleCheckout}>
           Checkout

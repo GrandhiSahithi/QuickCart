@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import CategoryCard from "../components/CategoryCard";
 import StoreCard from "../components/StoreCard";
+import HeroCarousel from "../components/HeroCarousel";
 import { storeApi, orderApi } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useLocationContext } from "../context/LocationContext";
@@ -10,10 +11,34 @@ import { VERTICALS } from "../constants/verticals";
 const OFFERS = [
   { emoji: "🎉", title: "50% off your first order", text: "New customers save big on their first checkout.", vertical: "FOOD" },
   { emoji: "🚚", title: "Free delivery with QuickCart+", text: "Join for $7.99/mo and never pay a delivery fee again.", to: "/premium" },
-  { emoji: "💊", title: "20% off Medicine this week", text: "Pharmacy essentials, discounted through Sunday.", vertical: "MEDICINE" }
+  { emoji: "🍕", title: "Buy 1 Get 1 on select items", text: "Look for the BOGO tag on menus and product pages.", vertical: "FOOD" },
+  { emoji: "💊", title: "20% off select Medicine", text: "Pharmacy essentials, discounted this week.", vertical: "MEDICINE" },
+  { emoji: "🚚", title: "Free delivery from select stores", text: "Look for the delivery badge on a store's card.", vertical: "GROCERY" }
 ];
 
-const HERO_IMAGE = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=70";
+const PROMO_SLIDES = [
+  {
+    id: "bogo",
+    eyebrow: "BUY ONE GET ONE",
+    heading: "BOGO deals across your favorite spots.",
+    sub: "Look for the BOGO tag on menus and product pages.",
+    image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1600&q=70"
+  },
+  {
+    id: "delivery",
+    eyebrow: "DELIVERY DEALS",
+    heading: "Some stores deliver free. Others knock off the fee.",
+    sub: "Watch for the delivery badge on a store's card before you order.",
+    image: "https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=1600&q=70"
+  },
+  {
+    id: "tracking",
+    eyebrow: "LIVE TRACKING",
+    heading: "Watch it move, door to door.",
+    sub: "Every order is tracked on a live map from the store to your doorstep.",
+    image: "https://images.unsplash.com/photo-1579113800032-c38bd7635818?auto=format&fit=crop&w=1600&q=70"
+  }
+];
 
 export default function Home() {
   const { user } = useAuth();
@@ -62,25 +87,20 @@ export default function Home() {
   const activeLabel = VERTICALS.find((v) => v.key === vertical)?.label;
   const firstName = user?.name?.split(" ")[0];
 
+  const heroSlides = [
+    {
+      id: "greeting",
+      eyebrow: "DELIVERED FAST",
+      heading: firstName ? `Hi ${firstName}, what are you ordering today?` : "What are you ordering today?",
+      sub: `Order from ${activeLabel?.toLowerCase()} and track it live as it arrives${location ? ` — delivering to ${location.label}` : ""}.`,
+      image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=70"
+    },
+    ...PROMO_SLIDES
+  ];
+
   return (
     <main>
-      <section
-        className="hero"
-        style={{
-          backgroundImage: `linear-gradient(135deg, rgba(24, 27, 33, 0.88), rgba(16, 18, 22, 0.94)), url(${HERO_IMAGE})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center"
-        }}
-      >
-        <div>
-          <p className="eyebrow">DELIVERED FAST</p>
-          <h1>{firstName ? `Hi ${firstName}, what are you ordering today?` : "What are you ordering today?"}</h1>
-          <p>
-            Order from {activeLabel?.toLowerCase()} and track it live as it arrives
-            {location ? ` — delivering to ${location.label}` : ""}.
-          </p>
-        </div>
-      </section>
+      <HeroCarousel slides={heroSlides} />
 
       <div className="page-container">
         <section>

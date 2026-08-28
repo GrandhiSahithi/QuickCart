@@ -2,7 +2,8 @@ const BADGE_LABELS = {
   BESTSELLER: "Bestseller",
   TRENDING: "Trending",
   NEW: "New",
-  SALE: "Sale"
+  SALE: "Sale",
+  BOGO: "Buy 1 Get 1 Free"
 };
 
 export default function ProductCard({ product, onAdd }) {

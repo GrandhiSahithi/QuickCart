@@ -201,26 +201,6 @@ input {
   color: inherit;
 }
 
-.hero {
-  padding: 70px 7%;
-  background: linear-gradient(135deg, #1c2027, #14161a);
-}
-
-.hero > div {
-  max-width: 700px;
-}
-
-.hero h1 {
-  font-size: clamp(38px, 6vw, 68px);
-  line-height: 1.02;
-  margin: 8px 0 18px;
-}
-
-.hero p {
-  font-size: 18px;
-  color: var(--text-secondary);
-}
-
 .eyebrow {
   font-size: 13px !important;
   font-weight: 800;
@@ -234,7 +214,7 @@ input {
   padding: 36px 0 60px;
 }
 
-.landing-hero-carousel {
+.hero-carousel {
   position: relative;
   min-height: 560px;
   overflow: hidden;
@@ -244,7 +224,7 @@ input {
   text-align: center;
 }
 
-.landing-hero-slide {
+.hero-carousel-slide {
   position: absolute;
   inset: 0;
   background-size: cover;
@@ -254,12 +234,12 @@ input {
   transition: opacity 1.2s var(--ease-ios);
 }
 
-.landing-hero-slide.active {
+.hero-carousel-slide.active {
   opacity: 1;
-  animation: landing-kenburns 7s var(--ease-ios) forwards;
+  animation: hero-kenburns 7s var(--ease-ios) forwards;
 }
 
-@keyframes landing-kenburns {
+@keyframes hero-kenburns {
   from {
     transform: scale(1);
   }
@@ -268,20 +248,20 @@ input {
   }
 }
 
-.landing-hero-content {
+.hero-carousel-content {
   position: relative;
   z-index: 2;
   padding: 100px 7% 80px;
   max-width: 780px;
 }
 
-.landing-hero-content h1 {
+.hero-carousel-content h1 {
   font-size: clamp(34px, 5.5vw, 56px);
   line-height: 1.1;
   margin: 10px auto 16px;
 }
 
-.landing-hero-arrow {
+.hero-carousel-arrow {
   position: absolute;
   z-index: 3;
   top: 50%;
@@ -299,20 +279,20 @@ input {
   transition: background 0.15s var(--ease-ios), border-color 0.15s var(--ease-ios);
 }
 
-.landing-hero-arrow:hover {
+.hero-carousel-arrow:hover {
   background: rgba(20, 22, 26, 0.7);
   border-color: var(--accent);
 }
 
-.landing-hero-arrow-prev {
+.hero-carousel-arrow-prev {
   left: 24px;
 }
 
-.landing-hero-arrow-next {
+.hero-carousel-arrow-next {
   right: 24px;
 }
 
-.landing-hero-dots {
+.hero-carousel-dots {
   position: absolute;
   z-index: 3;
   bottom: 26px;
@@ -322,7 +302,7 @@ input {
   gap: 8px;
 }
 
-.landing-hero-dots button {
+.hero-carousel-dots button {
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -333,13 +313,13 @@ input {
   transition: background 0.15s var(--ease-ios), width 0.15s var(--ease-ios);
 }
 
-.landing-hero-dots button.active {
+.hero-carousel-dots button.active {
   background: var(--accent);
   width: 22px;
   border-radius: 4px;
 }
 
-.landing-hero-sub {
+.hero-carousel-sub {
   color: var(--text-secondary);
   font-size: 18px;
   max-width: 560px;
@@ -530,10 +510,25 @@ input {
 }
 
 .store-image {
+  position: relative;
   height: 150px;
   background-color: var(--surface-alt);
   background-size: cover;
   background-position: center;
+}
+
+.store-delivery-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #08331f;
+  background: #6fe3a4;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .store-details {
@@ -649,6 +644,11 @@ input {
 .product-badge-sale {
   color: #3a0f10;
   background: var(--danger);
+}
+
+.product-badge-bogo {
+  color: #ffffff;
+  background: #6c5ce7;
 }
 
 .product-details h3 {
@@ -1327,6 +1327,23 @@ input {
   border-top: 1px solid var(--border);
 }
 
+.cart-savings-row {
+  color: #6fe3a4;
+}
+
+.cart-item-bogo-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+  background: #6c5ce7;
+  vertical-align: middle;
+}
+
 .cart-summary .primary-button {
   width: 100%;
   padding: 14px;
@@ -1469,11 +1486,11 @@ input {
 
   /* Prev/next chevrons can crowd the hero heading at phone widths - dots
      and autoplay (plus swipe, native to touch scroll) are enough there. */
-  .landing-hero-arrow {
+  .hero-carousel-arrow {
     display: none;
   }
 
-  .landing-hero-content {
+  .hero-carousel-content {
     padding-left: 6%;
     padding-right: 6%;
   }

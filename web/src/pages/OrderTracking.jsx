@@ -108,9 +108,29 @@ export default function OrderTracking() {
             <span>${(item.price * item.quantity).toFixed(2)}</span>
           </div>
         ))}
+        {(() => {
+          const lineTotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          const bogoSavings = lineTotal - order.subtotal;
+          return (
+            <>
+              {bogoSavings > 0.001 && (
+                <div className="cart-subtotal-row cart-savings-row">
+                  <span>Buy 1 Get 1 savings</span>
+                  <span>-${bogoSavings.toFixed(2)}</span>
+                </div>
+              )}
+              {order.discountAmount > 0 && (
+                <div className="cart-subtotal-row cart-savings-row">
+                  <span>First order discount</span>
+                  <span>-${order.discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+            </>
+          );
+        })()}
         <div className="cart-subtotal-row">
           <span>Delivery fee</span>
-          <span>{order.deliveryFee === 0 ? "FREE with QuickCart+" : `$${order.deliveryFee.toFixed(2)}`}</span>
+          <span>{order.deliveryFee === 0 ? "FREE" : `$${order.deliveryFee.toFixed(2)}`}</span>
         </div>
         <div className="cart-total-row">
           <span>Total</span>

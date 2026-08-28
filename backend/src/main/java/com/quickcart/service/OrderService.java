@@ -62,7 +62,11 @@ public class OrderService {
         order.setCurrentLat(effectiveStoreLat);
         order.setCurrentLng(effectiveStoreLng);
 
-        BigDecimal total = BigDecimal.ZERO;
+        // First order ever for this user gets 50% off - checked before this
+        // order is saved, so it only ever fires once per customer.
+        boolean isFirstOrder = orderRepository.findByUserIdOrderByCreatedAtDesc(userId).isEmpty();
+
+        BigDecimal subtotal = BigDecimal.ZERO;
         for (OrderItemRequest itemRequest : request.items()) {
             Product product = productRepository.findById(itemRequest.productId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
@@ -75,12 +79,34 @@ public class OrderService {
             item.setQuantity(itemRequest.quantity());
             order.getItems().add(item);
 
-            total = total.add(product.getPrice().multiply(BigDecimal.valueOf(itemRequest.quantity())));
+            // BOGO products only bill for half the quantity (rounded up), so
+            // e.g. 3 units bills as 2.
+            int quantity = itemRequest.quantity();
+            int billableQuantity = "BOGO".equals(product.getBadge()) ? (quantity + 1) / 2 : quantity;
+            subtotal = subtotal.add(product.getPrice().multiply(BigDecimal.valueOf(billableQuantity)));
         }
 
-        BigDecimal deliveryFee = user.isPremium() ? BigDecimal.ZERO : DELIVERY_FEE;
+        BigDecimal discount = isFirstOrder
+                ? subtotal.multiply(new BigDecimal("0.50")).setScale(2, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        BigDecimal deliveryFee;
+        if (user.isPremium()) {
+            deliveryFee = BigDecimal.ZERO;
+        } else {
+            Integer discountPercent = store.getDeliveryFeeDiscountPercent();
+            if (discountPercent != null && discountPercent > 0) {
+                BigDecimal factor = BigDecimal.ONE.subtract(BigDecimal.valueOf(discountPercent).divide(new BigDecimal("100")));
+                deliveryFee = DELIVERY_FEE.multiply(factor).setScale(2, java.math.RoundingMode.HALF_UP);
+            } else {
+                deliveryFee = DELIVERY_FEE;
+            }
+        }
+
+        order.setSubtotal(subtotal);
+        order.setDiscountAmount(discount);
         order.setDeliveryFee(deliveryFee);
-        order.setTotalAmount(total.add(deliveryFee));
+        order.setTotalAmount(subtotal.subtract(discount).add(deliveryFee));
 
         return orderRepository.save(order);
     }

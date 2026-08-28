@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLocationContext } from "../context/LocationContext";
-import { orderApi } from "../services/api";
+import { orderApi, storeApi } from "../services/api";
 import PaymentIcon from "../components/PaymentIcon";
-
-const DELIVERY_FEE = 2.99;
+import { computeCartPricing } from "../utils/pricing";
 
 const PAYMENT_METHODS = [
   { key: "CARD", label: "Credit / Debit Card", sub: "Visa, Mastercard, Amex & more" },
@@ -17,7 +16,7 @@ const PAYMENT_METHODS = [
 ];
 
 export default function Checkout() {
-  const { cart, total, clearCart } = useCart();
+  const { cart, clearCart } = useCart();
   const { user } = useAuth();
   const { location } = useLocationContext();
   const navigate = useNavigate();
@@ -25,14 +24,30 @@ export default function Checkout() {
   const [card, setCard] = useState("4242 4242 4242 4242");
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState(null);
+  const [store, setStore] = useState(null);
+  const [isFirstOrder, setIsFirstOrder] = useState(false);
+
+  useEffect(() => {
+    if (cart.storeId) {
+      storeApi.get(cart.storeId).then(setStore).catch(() => {});
+    }
+    orderApi
+      .mine()
+      .then((orders) => setIsFirstOrder(orders.length === 0))
+      .catch(() => {});
+  }, [cart.storeId]);
 
   if (!cart.items.length) {
     navigate("/cart");
     return null;
   }
 
-  const deliveryFee = user?.premium ? 0 : DELIVERY_FEE;
-  const grandTotal = total + deliveryFee;
+  const pricing = computeCartPricing({
+    items: cart.items,
+    deliveryFeeDiscountPercent: store?.deliveryFeeDiscountPercent,
+    isFirstOrder,
+    isPremium: user?.premium
+  });
 
   async function handlePay(e) {
     e.preventDefault();
@@ -106,21 +121,44 @@ export default function Checkout() {
 
         <div className="cart-subtotal-row">
           <span>Subtotal</span>
-          <span>${total.toFixed(2)}</span>
+          <span>${pricing.listSubtotal.toFixed(2)}</span>
         </div>
+        {pricing.bogoSavings > 0 && (
+          <div className="cart-subtotal-row cart-savings-row">
+            <span>Buy 1 Get 1 savings</span>
+            <span>-${pricing.bogoSavings.toFixed(2)}</span>
+          </div>
+        )}
+        {pricing.firstOrderDiscount > 0 && (
+          <div className="cart-subtotal-row cart-savings-row">
+            <span>First order discount (-50%)</span>
+            <span>-${pricing.firstOrderDiscount.toFixed(2)}</span>
+          </div>
+        )}
         <div className="cart-subtotal-row">
           <span>Delivery fee</span>
-          <span>{deliveryFee === 0 ? "FREE with QuickCart+" : `$${deliveryFee.toFixed(2)}`}</span>
+          <span>
+            {user?.premium ? (
+              "FREE with QuickCart+"
+            ) : pricing.deliveryFeeOriginal ? (
+              <>
+                <s className="product-original-price">${pricing.deliveryFeeOriginal.toFixed(2)}</s>{" "}
+                {pricing.deliveryFee === 0 ? "FREE" : `$${pricing.deliveryFee.toFixed(2)}`}
+              </>
+            ) : (
+              `$${pricing.deliveryFee.toFixed(2)}`
+            )}
+          </span>
         </div>
         <div className="cart-total-row">
           <span>Total</span>
-          <strong>${grandTotal.toFixed(2)}</strong>
+          <strong>${pricing.total.toFixed(2)}</strong>
         </div>
 
         {error && <p className="error-text">{error}</p>}
 
         <button className="primary-button" type="submit" disabled={placing}>
-          {placing ? "Placing order..." : `Pay $${grandTotal.toFixed(2)}`}
+          {placing ? "Placing order..." : `Pay $${pricing.total.toFixed(2)}`}
         </button>
       </form>
     </main>
