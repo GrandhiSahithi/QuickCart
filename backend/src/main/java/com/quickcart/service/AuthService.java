@@ -4,10 +4,8 @@ import com.quickcart.dto.AuthResponse;
 import com.quickcart.dto.ForgotPasswordRequest;
 import com.quickcart.dto.LoginRequest;
 import com.quickcart.dto.OtpChallengeResponse;
-import com.quickcart.dto.ResendOtpRequest;
 import com.quickcart.dto.ResetPasswordRequest;
 import com.quickcart.dto.SignupRequest;
-import com.quickcart.dto.VerifyOtpRequest;
 import com.quickcart.model.Role;
 import com.quickcart.model.User;
 import com.quickcart.repository.UserRepository;
@@ -61,43 +59,13 @@ public class AuthService {
         return toAuthResponse(user);
     }
 
-    public OtpChallengeResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
-
-        return issueOtp(user);
-    }
-
-    public OtpChallengeResponse resendOtp(ResendOtpRequest request) {
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No pending login for this email"));
-
-        if (user.getOtpLastSentAt() != null
-                && user.getOtpLastSentAt().plusSeconds(OTP_RESEND_COOLDOWN_SECONDS).isAfter(Instant.now())) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Please wait before requesting another code");
-        }
-
-        return issueOtp(user);
-    }
-
-    public AuthResponse verifyOtp(VerifyOtpRequest request) {
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired code"));
-
-        if (user.getOtpCodeHash() == null || user.getOtpExpiresAt() == null
-                || user.getOtpExpiresAt().isBefore(Instant.now())
-                || !passwordEncoder.matches(request.code(), user.getOtpCodeHash())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired code");
-        }
-
-        user.setOtpCodeHash(null);
-        user.setOtpExpiresAt(null);
-        user.setOtpLastSentAt(null);
-        userRepository.save(user);
 
         return toAuthResponse(user);
     }
@@ -139,18 +107,6 @@ public class AuthService {
         userRepository.save(user);
 
         return toAuthResponse(user);
-    }
-
-    private OtpChallengeResponse issueOtp(User user) {
-        String code = String.format("%06d", random.nextInt(1_000_000));
-        user.setOtpCodeHash(passwordEncoder.encode(code));
-        user.setOtpExpiresAt(Instant.now().plus(OTP_TTL_SECONDS, ChronoUnit.SECONDS));
-        user.setOtpLastSentAt(Instant.now());
-        userRepository.save(user);
-
-        emailService.sendOtp(user.getEmail(), code);
-
-        return new OtpChallengeResponse(user.getEmail(), OTP_TTL_SECONDS);
     }
 
     private AuthResponse toAuthResponse(User user) {

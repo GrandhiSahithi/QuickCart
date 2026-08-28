@@ -4,10 +4,8 @@ import com.quickcart.dto.AuthResponse;
 import com.quickcart.dto.ForgotPasswordRequest;
 import com.quickcart.dto.LoginRequest;
 import com.quickcart.dto.OtpChallengeResponse;
-import com.quickcart.dto.ResendOtpRequest;
 import com.quickcart.dto.ResetPasswordRequest;
 import com.quickcart.dto.SignupRequest;
-import com.quickcart.dto.VerifyOtpRequest;
 import com.quickcart.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -33,18 +31,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public OtpChallengeResponse login(@Valid @RequestBody LoginRequest request) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
-    }
-
-    @PostMapping("/verify-otp")
-    public AuthResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
-        return authService.verifyOtp(request);
-    }
-
-    @PostMapping("/resend-otp")
-    public OtpChallengeResponse resendOtp(@Valid @RequestBody ResendOtpRequest request) {
-        return authService.resendOtp(request);
     }
 
     @PostMapping("/forgot-password")

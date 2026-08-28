@@ -10,9 +10,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Sends login OTP codes via the SendGrid v3 REST API (plain HTTP call, no SDK
- * dependency needed). When no API key is configured, the code is logged
- * instead so the OTP flow is fully testable before SendGrid is wired up.
+ * Sends password-reset OTP codes via the SendGrid v3 REST API (plain HTTP
+ * call, no SDK dependency needed). When no API key is configured, the code
+ * is logged instead so the flow is fully testable before SendGrid is wired
+ * up.
  */
 @Slf4j
 @Service
@@ -25,11 +26,6 @@ public class EmailService {
 
     @Value("${sendgrid.from.email:no-reply@quickcart.app}")
     private String fromEmail;
-
-    public void sendOtp(String toEmail, String code) {
-        send(toEmail, "login OTP", "Your QuickCart verification code",
-                "Your QuickCart verification code is " + code + ". It expires in 5 minutes.");
-    }
 
     public void sendPasswordResetOtp(String toEmail, String code) {
         send(toEmail, "password reset OTP", "Your QuickCart password reset code",

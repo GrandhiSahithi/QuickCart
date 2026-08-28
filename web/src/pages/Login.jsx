@@ -1,57 +1,27 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import PasswordInput from "../components/PasswordInput";
-import OtpInput from "../components/OtpInput";
 
 const AUTH_IMAGE = "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=75";
-const RESEND_COOLDOWN = 30;
 
 export default function Login() {
-  const { login, verifyOtp, resendOtp, logout } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [portal, setPortal] = useState(location.state?.portal === "admin" ? "admin" : "customer");
-  const [step, setStep] = useState("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
   const [error, setError] = useState(null);
-  const [info, setInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
 
-  useEffect(() => {
-    if (cooldown <= 0) return undefined;
-    const timer = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
-
-  async function handlePasswordSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
 
     try {
-      await login(email, password);
-      setStep("otp");
-      setCode("");
-      setInfo(`We sent a 6-digit code to ${email}.`);
-      setCooldown(RESEND_COOLDOWN);
-    } catch {
-      setError("Invalid email or password.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleOtpSubmit(e) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const auth = await verifyOtp(email, code);
+      const auth = await login(email, password);
 
       if (portal === "admin") {
         if (auth.role !== "ADMIN") {
@@ -66,28 +36,9 @@ export default function Login() {
 
       navigate(auth.role === "ADMIN" ? "/admin" : location.state?.from || "/");
     } catch {
-      setError("That code is invalid or has expired.");
+      setError("Invalid email or password.");
       setSubmitting(false);
     }
-  }
-
-  async function handleResend() {
-    if (cooldown > 0) return;
-    setError(null);
-    try {
-      await resendOtp(email);
-      setInfo("We sent you a new code.");
-      setCooldown(RESEND_COOLDOWN);
-    } catch {
-      setError("Couldn't resend the code. Please try again shortly.");
-    }
-  }
-
-  function backToPassword() {
-    setStep("password");
-    setCode("");
-    setError(null);
-    setInfo(null);
   }
 
   const isAdmin = portal === "admin";
@@ -102,82 +53,58 @@ export default function Login() {
       </div>
 
       <div className="auth-form-panel">
-        {step === "password" ? (
-          <form className="form-card" onSubmit={handlePasswordSubmit}>
-            <div className="portal-switch">
-              <button
-                type="button"
-                className={portal === "customer" ? "portal-tab active" : "portal-tab"}
-                onClick={() => setPortal("customer")}
-              >
-                Customer Login
-              </button>
-              <button
-                type="button"
-                className={portal === "admin" ? "portal-tab active" : "portal-tab"}
-                onClick={() => setPortal("admin")}
-              >
-                Admin Login
-              </button>
-            </div>
+        <form className="form-card" onSubmit={handleSubmit}>
+          <div className="portal-switch">
+            <button
+              type="button"
+              className={portal === "customer" ? "portal-tab active" : "portal-tab"}
+              onClick={() => setPortal("customer")}
+            >
+              Customer Login
+            </button>
+            <button
+              type="button"
+              className={portal === "admin" ? "portal-tab active" : "portal-tab"}
+              onClick={() => setPortal("admin")}
+            >
+              Admin Login
+            </button>
+          </div>
 
-            <h1>{isAdmin ? "QuickCart Admin" : "Welcome back"}</h1>
+          <h1>{isAdmin ? "QuickCart Admin" : "Welcome back"}</h1>
 
-            <label>Email</label>
-            <input
-              type="email"
-              placeholder={isAdmin ? "admin@quickcart.com" : "you@example.com"}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+          <label>Email</label>
+          <input
+            type="email"
+            placeholder={isAdmin ? "admin@quickcart.com" : "you@example.com"}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-            <label>Password</label>
-            <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <label>Password</label>
+          <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
 
+          <p className="auth-switch">
+            <Link to="/forgot-password" state={{ email }}>Forgot password?</Link>
+          </p>
+
+          {error && <p className="error-text">{error}</p>}
+
+          <button className="primary-button" type="submit" disabled={submitting}>
+            {submitting ? "Signing in..." : isAdmin ? "Sign in to Admin" : "Login"}
+          </button>
+
+          {isAdmin ? (
             <p className="auth-switch">
-              <Link to="/forgot-password" state={{ email }}>Forgot password?</Link>
+              New admin? <Link to="/signup" state={{ portal: "admin" }}>Create an admin account</Link>
             </p>
-
-            {error && <p className="error-text">{error}</p>}
-
-            <button className="primary-button" type="submit" disabled={submitting}>
-              {submitting ? "Signing in..." : isAdmin ? "Sign in to Admin" : "Login"}
-            </button>
-
-            {isAdmin ? (
-              <p className="auth-switch">
-                New admin? <Link to="/signup" state={{ portal: "admin" }}>Create an admin account</Link>
-              </p>
-            ) : (
-              <p className="auth-switch">
-                New to QuickCart? <Link to="/signup">Create an account</Link>
-              </p>
-            )}
-          </form>
-        ) : (
-          <form className="form-card" onSubmit={handleOtpSubmit}>
-            <h1>Enter your code</h1>
-            <p className="otp-subtitle">{info}</p>
-
-            <OtpInput value={code} onChange={setCode} />
-
-            {error && <p className="error-text field-error">{error}</p>}
-
-            <button className="primary-button" type="submit" disabled={submitting || code.length !== 6}>
-              {submitting ? "Verifying..." : "Verify & continue"}
-            </button>
-
-            <div className="otp-actions">
-              <button type="button" className="link-button" onClick={handleResend} disabled={cooldown > 0}>
-                {cooldown > 0 ? `Resend code (${cooldown}s)` : "Resend code"}
-              </button>
-              <button type="button" className="link-button" onClick={backToPassword}>
-                Use a different email
-              </button>
-            </div>
-          </form>
-        )}
+          ) : (
+            <p className="auth-switch">
+              New to QuickCart? <Link to="/signup">Create an account</Link>
+            </p>
+          )}
+        </form>
       </div>
     </main>
   );
