@@ -7,13 +7,22 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0f0f14",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.example.quickcart"
     },
     "android": {
       "package": "com.example.quickcart"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c03198b8-8623-47a2-9979-dfa30b587ea8"
+      }
+    },
+    "owner": "sahithi18181"
   }
 }
