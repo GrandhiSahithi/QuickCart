@@ -16,6 +16,7 @@ export default function Navbar() {
       <nav>
         {user && user.role === "ADMIN" && <Link to="/admin">Admin</Link>}
         {user && <Link to="/orders">Orders</Link>}
+        {user && <Link to="/subscriptions">Subscriptions</Link>}
         {user && !user.premium && <Link to="/premium" className="premium-link">QuickCart+</Link>}
         <Link to="/cart">Cart{count > 0 ? ` (${count})` : ""}</Link>
         {user ? (

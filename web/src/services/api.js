@@ -49,6 +49,13 @@ export const orderApi = {
   tracking: (id) => api.get(`/orders/${id}/tracking`).then((r) => r.data)
 };
 
+export const subscriptionApi = {
+  create: (payload) => api.post("/subscriptions", payload).then((r) => r.data),
+  mine: () => api.get("/subscriptions/mine").then((r) => r.data),
+  setActive: (id, active) => api.patch(`/subscriptions/${id}`, { active }).then((r) => r.data),
+  cancel: (id) => api.delete(`/subscriptions/${id}`)
+};
+
 export const adminApi = {
   stores: () => api.get("/admin/stores").then((r) => r.data),
   orders: () => api.get("/admin/orders").then((r) => r.data),

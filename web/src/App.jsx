@@ -9,6 +9,7 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
 import OrderTracking from "./pages/OrderTracking";
+import Subscriptions from "./pages/Subscriptions";
 import Profile from "./pages/Profile";
 import Premium from "./pages/Premium";
 import Login from "./pages/Login";
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
           <Route path="/orders/:id" element={<RequireAuth><OrderTracking /></RequireAuth>} />
+          <Route path="/subscriptions" element={<RequireAuth><Subscriptions /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/premium" element={<RequireAuth><Premium /></RequireAuth>} />
           <Route path="/login" element={<Login />} />

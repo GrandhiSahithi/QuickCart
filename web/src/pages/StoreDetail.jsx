@@ -88,7 +88,7 @@ export default function StoreDetail() {
 
           <div className="product-grid">
             {grouped.get(category).map((product) => (
-              <ProductCard key={product.id} product={product} onAdd={(p) => addItem(store, p)} />
+              <ProductCard key={product.id} product={product} storeVertical={store.vertical} onAdd={(p) => addItem(store, p)} />
             ))}
           </div>
         </section>
