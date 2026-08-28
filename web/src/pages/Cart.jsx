@@ -6,15 +6,24 @@ import { storeApi } from "../services/api";
 import { computeCartPricing } from "../utils/pricing";
 
 export default function Cart() {
-  const { cart, updateQuantity, count } = useCart();
+  const { cart, updateQuantity, removeStore, count } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [store, setStore] = useState(null);
+  const [storesById, setStoresById] = useState({});
 
   useEffect(() => {
-    if (!cart.storeId) return;
-    storeApi.get(cart.storeId).then(setStore).catch(() => {});
-  }, [cart.storeId]);
+    cart.stores.forEach((s) => {
+      if (!(s.storeId in storesById)) {
+        storeApi
+          .get(s.storeId)
+          .then((data) => setStoresById((prev) => ({ ...prev, [s.storeId]: data })))
+          .catch(() => {});
+      }
+    });
+    // storesById is deliberately left out - it's only used to avoid
+    // re-fetching a store we already have, not to react to its own changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.stores]);
 
   if (count === 0) {
     return (
@@ -36,67 +45,94 @@ export default function Cart() {
     navigate("/checkout");
   }
 
-  const pricing = computeCartPricing({
-    items: cart.items,
-    deliveryFeeDiscountPercent: store?.deliveryFeeDiscountPercent,
-    isFirstOrder: false,
-    isPremium: user?.premium
-  });
+  const sections = cart.stores.map((s) => ({
+    ...s,
+    pricing: computeCartPricing({
+      items: s.items,
+      deliveryFeeDiscountPercent: storesById[s.storeId]?.deliveryFeeDiscountPercent,
+      isFirstOrder: false,
+      isPremium: user?.premium
+    })
+  }));
+
+  const grandTotal = sections.reduce((sum, s) => sum + s.pricing.total, 0);
 
   return (
     <main className="page-container">
       <h1>Your Cart</h1>
-      <p className="cart-store-name">From {cart.storeName}</p>
 
-      <div className="cart-items">
-        {cart.items.map((item) => (
-          <div className="cart-item" key={item.id}>
-            <div className="cart-item-image" style={{ backgroundImage: `url(${item.imageUrl})` }} />
-            <div className="cart-item-details">
-              <strong>
-                {item.name}
-                {item.badge === "BOGO" && <span className="cart-item-bogo-tag">BOGO</span>}
-              </strong>
-              <span>${item.price.toFixed(2)}</span>
-            </div>
-            <div className="quantity-control">
-              <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</button>
-              <span>{item.quantity}</span>
-              <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
-            </div>
+      {sections.map((section) => (
+        <div className="cart-store-section" key={section.storeId}>
+          <div className="cart-store-header">
+            <p className="cart-store-name">From {section.storeName}</p>
+            <button type="button" className="link-button" onClick={() => removeStore(section.storeId)}>
+              Remove all
+            </button>
           </div>
-        ))}
-      </div>
 
-      <div className="cart-summary">
-        <div className="cart-subtotal-row">
-          <span>Subtotal</span>
-          <span>${pricing.listSubtotal.toFixed(2)}</span>
-        </div>
-        {pricing.bogoSavings > 0 && (
-          <div className="cart-subtotal-row cart-savings-row">
-            <span>Buy 1 Get 1 savings</span>
-            <span>-${pricing.bogoSavings.toFixed(2)}</span>
+          <div className="cart-items">
+            {section.items.map((item) => (
+              <div className="cart-item" key={item.id}>
+                <div className="cart-item-image" style={{ backgroundImage: `url(${item.imageUrl})` }} />
+                <div className="cart-item-details">
+                  <strong>
+                    {item.name}
+                    {item.badge === "BOGO" && <span className="cart-item-bogo-tag">BOGO</span>}
+                  </strong>
+                  <span>${item.price.toFixed(2)}</span>
+                </div>
+                <div className="quantity-control">
+                  <button onClick={() => updateQuantity(section.storeId, item.id, item.quantity - 1)}>-</button>
+                  <span>{item.quantity}</span>
+                  <button onClick={() => updateQuantity(section.storeId, item.id, item.quantity + 1)}>+</button>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-        <div className="cart-subtotal-row">
-          <span>Delivery fee</span>
-          <span>
-            {user?.premium ? (
-              "FREE with QuickCart+"
-            ) : pricing.deliveryFeeOriginal ? (
-              <>
-                <s className="product-original-price">${pricing.deliveryFeeOriginal.toFixed(2)}</s>{" "}
-                {pricing.deliveryFee === 0 ? "FREE" : `$${pricing.deliveryFee.toFixed(2)}`}
-              </>
-            ) : (
-              `$${pricing.deliveryFee.toFixed(2)}`
+
+          <div className="cart-summary">
+            <div className="cart-subtotal-row">
+              <span>Subtotal</span>
+              <span>${section.pricing.listSubtotal.toFixed(2)}</span>
+            </div>
+            {section.pricing.bogoSavings > 0 && (
+              <div className="cart-subtotal-row cart-savings-row">
+                <span>Buy 1 Get 1 savings</span>
+                <span>-${section.pricing.bogoSavings.toFixed(2)}</span>
+              </div>
             )}
-          </span>
+            <div className="cart-subtotal-row">
+              <span>Delivery fee</span>
+              <span>
+                {user?.premium ? (
+                  "FREE with QuickCart+"
+                ) : section.pricing.deliveryFeeOriginal ? (
+                  <>
+                    <s className="product-original-price">${section.pricing.deliveryFeeOriginal.toFixed(2)}</s>{" "}
+                    {section.pricing.deliveryFee === 0 ? "FREE" : `$${section.pricing.deliveryFee.toFixed(2)}`}
+                  </>
+                ) : (
+                  `$${section.pricing.deliveryFee.toFixed(2)}`
+                )}
+              </span>
+            </div>
+            <div className="cart-total-row">
+              <span>{section.storeName} total</span>
+              <strong>${section.pricing.total.toFixed(2)}</strong>
+            </div>
+          </div>
         </div>
+      ))}
+
+      <div className="cart-summary cart-grand-summary">
+        {sections.length > 1 && (
+          <p className="cart-multi-store-note">
+            {sections.length} stores in this order — each is delivered and tracked separately.
+          </p>
+        )}
         <div className="cart-total-row">
-          <span>Total</span>
-          <strong>${pricing.total.toFixed(2)}</strong>
+          <span>Order total</span>
+          <strong>${grandTotal.toFixed(2)}</strong>
         </div>
         <button className="primary-button" onClick={handleCheckout}>
           Checkout

@@ -20,4 +20,9 @@ public class ProductController {
     public List<ProductResponse> getProducts() {
         return productService.getAllProducts().stream().map(ProductResponse::from).toList();
     }
+
+    @GetMapping("/{id}/alternatives")
+    public List<ProductResponse> getAlternatives(@PathVariable Long id) {
+        return productService.getAlternatives(id).stream().map(ProductResponse::from).toList();
+    }
 }

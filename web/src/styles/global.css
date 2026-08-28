@@ -692,6 +692,48 @@ input {
   cursor: not-allowed;
 }
 
+.out-of-stock-button {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+.product-alternatives {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.product-alternatives small {
+  color: var(--text-secondary);
+}
+
+.product-alternatives-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.alternative-chip {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease-ios);
+}
+
+.alternative-chip:hover {
+  border-color: var(--accent);
+}
+
 .form-page {
   min-height: calc(100vh - 72px);
   display: grid;
@@ -1159,6 +1201,53 @@ input {
   width: min(480px, 100%);
 }
 
+.checkout-order-summary {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.checkout-order-summary .cart-store-name {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.availability-review {
+  background: rgba(230, 126, 34, 0.1);
+  border: 1px solid rgba(230, 126, 34, 0.35);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 4px;
+}
+
+.availability-review h2 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+
+.availability-review > p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.availability-issue {
+  margin-bottom: 14px;
+}
+
+.availability-issue:last-child {
+  margin-bottom: 0;
+}
+
+.availability-issue > div:first-child {
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.availability-issue span {
+  color: var(--text-secondary);
+}
+
 .secure-checkout-band {
   display: flex;
   align-items: center;
@@ -1245,6 +1334,32 @@ input {
 .cart-store-name {
   color: var(--text-secondary);
   margin-top: -8px;
+}
+
+.cart-store-section {
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cart-store-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cart-store-header .cart-store-name {
+  margin-top: 0;
+}
+
+.cart-grand-summary {
+  margin-top: 8px;
+}
+
+.cart-multi-store-note {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0 0 12px;
 }
 
 .cart-items {

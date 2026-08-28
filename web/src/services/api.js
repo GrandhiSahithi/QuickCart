@@ -41,6 +41,10 @@ export const storeApi = {
   products: (id) => api.get(`/stores/${id}/products`).then((r) => r.data)
 };
 
+export const productApi = {
+  alternatives: (id) => api.get(`/products/${id}/alternatives`).then((r) => r.data)
+};
+
 export const orderApi = {
   create: (payload) => api.post("/orders", payload).then((r) => r.data),
   mine: () => api.get("/orders/mine").then((r) => r.data),

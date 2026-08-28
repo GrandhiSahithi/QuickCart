@@ -84,6 +84,12 @@ public class OrderService {
             int quantity = itemRequest.quantity();
             int billableQuantity = "BOGO".equals(product.getBadge()) ? (quantity + 1) / 2 : quantity;
             subtotal = subtotal.add(product.getPrice().multiply(BigDecimal.valueOf(billableQuantity)));
+
+            // Real stock depletion (by the physical quantity taken, not the
+            // billable one) so "out of stock" is an actual reachable state
+            // that the substitution UI can catch.
+            product.setStock(Math.max(0, product.getStock() - quantity));
+            productRepository.save(product);
         }
 
         BigDecimal discount = isFirstOrder
