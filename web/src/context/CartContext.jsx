@@ -1,36 +1,65 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const CartContext = createContext(null);
 
-const CART_KEY = "quickcart_cart";
+const LEGACY_CART_KEY = "quickcart_cart";
 const EMPTY_CART = { stores: [] };
+
+function cartKeyFor(userId) {
+  return `quickcart_cart_${userId}`;
+}
 
 // Cart shape: { stores: [{ storeId, storeName, items: [{...product, quantity}] }] }
 // One entry per store the customer has items from - unlike a single-store
 // cart, adding from a second store doesn't wipe the first; each store is
 // checked out as its own order and tracked separately.
-function loadCart() {
+//
+// Carts are stored per-account (keyed by user id), never in one shared slot -
+// otherwise whoever is logged in next would see the previous account's cart,
+// and a signed-out visitor would see whoever was last signed in. No user id
+// means no cart to load.
+function loadCartFor(userId) {
+  if (!userId) return EMPTY_CART;
   try {
-    const raw = localStorage.getItem(CART_KEY);
+    const raw = localStorage.getItem(cartKeyFor(userId));
     if (!raw) return EMPTY_CART;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed.stores)) return parsed;
-    // Migrate the old single-store shape ({ storeId, storeName, items }).
-    if (parsed.storeId && parsed.items?.length) {
-      return { stores: [{ storeId: parsed.storeId, storeName: parsed.storeName, items: parsed.items }] };
-    }
-    return EMPTY_CART;
+    return Array.isArray(parsed.stores) ? parsed : EMPTY_CART;
   } catch {
     return EMPTY_CART;
   }
 }
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState(loadCart);
+  const { user } = useAuth();
+  const [cart, setCart] = useState(() => loadCartFor(user?.id));
+  const [ownerId, setOwnerId] = useState(user?.id);
+
+  // Whenever who's signed in changes, swap in that account's own saved cart
+  // - signing out (or into a different account) must never carry over
+  // someone else's cart, and signing back in picks up where that account's
+  // cart left off. This runs during render (not an effect) so the persist
+  // effect below never fires with a cart/owner pair that don't match -
+  // otherwise the outgoing account's stale cart could briefly overwrite the
+  // incoming account's saved one before the reload lands.
+  if (ownerId !== user?.id) {
+    setOwnerId(user?.id);
+    setCart(loadCartFor(user?.id));
+  }
+
+  // Undated global cart key from before carts were per-account - the data
+  // in it can't be attributed to any one account, so it's discarded rather
+  // than migrated.
+  useEffect(() => {
+    localStorage.removeItem(LEGACY_CART_KEY);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
-  }, [cart]);
+    if (user?.id) {
+      localStorage.setItem(cartKeyFor(user.id), JSON.stringify(cart));
+    }
+  }, [cart, user?.id]);
 
   function addItem(store, product) {
     setCart((prev) => {
