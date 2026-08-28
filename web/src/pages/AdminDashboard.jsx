@@ -12,22 +12,40 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState([]);
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [resetResult, setResetResult] = useState(null);
+  const [resettingId, setResettingId] = useState(null);
 
   function handleLogout() {
     logout();
     navigate("/login", { state: { portal: "admin" } });
   }
 
-  useEffect(() => {
-    Promise.all([adminApi.stats(), adminApi.orders(), adminApi.stores(), adminApi.customers()])
-      .then(([statsData, ordersData, storesData, customersData]) => {
+  function loadAll() {
+    return Promise.all([adminApi.stats(), adminApi.orders(), adminApi.stores(), adminApi.customers()]).then(
+      ([statsData, ordersData, storesData, customersData]) => {
         setStats(statsData);
         setOrders(ordersData);
         setStores(storesData);
         setCustomers(customersData);
-      })
-      .finally(() => setLoading(false));
+      }
+    );
+  }
+
+  useEffect(() => {
+    loadAll().finally(() => setLoading(false));
   }, []);
+
+  // Resets the account's password server-side and shows the new temporary
+  // password once, here, so it can be handed to the customer - QuickCart
+  // never stores or displays a user's actual password (only its hash is
+  // kept), so this reset-and-reveal is the only safe way to "see" one.
+  function handleResetPassword(customer) {
+    setResettingId(customer.id);
+    adminApi
+      .resetPassword(customer.id)
+      .then((result) => setResetResult(result))
+      .finally(() => setResettingId(null));
+  }
 
   if (loading) return <main className="page-container"><p>Loading admin dashboard...</p></main>;
 
@@ -74,6 +92,22 @@ export default function AdminDashboard() {
               <span className="admin-stat-value">${stats.avgOrderValue.toFixed(2)}</span>
               <span className="admin-stat-label">Avg Order Value</span>
             </div>
+            <div className="admin-stat-card">
+              <span className="admin-stat-value">{stats.totalCustomers}</span>
+              <span className="admin-stat-label">Total Customers</span>
+            </div>
+            <div className="admin-stat-card">
+              <span className="admin-stat-value">{stats.premiumCustomers}</span>
+              <span className="admin-stat-label">QuickCart+ Subscribers</span>
+            </div>
+            <div className="admin-stat-card">
+              <span className="admin-stat-value">{stats.newCustomersLast7Days}</span>
+              <span className="admin-stat-label">New Signups (7d)</span>
+            </div>
+            <div className="admin-stat-card">
+              <span className="admin-stat-value">${stats.promoDiscountGiven.toFixed(2)}</span>
+              <span className="admin-stat-label">Promo Discounts Given</span>
+            </div>
           </div>
 
           <div className="admin-columns">
@@ -114,6 +148,38 @@ export default function AdminDashboard() {
                 {stats.topStores.length === 0 && <p className="admin-empty">No sales yet.</p>}
               </div>
             </div>
+
+            <div>
+              <h2>Revenue by category</h2>
+              <div className="admin-list">
+                {Object.entries(stats.revenueByVertical).map(([vertical, revenue]) => (
+                  <div key={vertical} className="admin-list-row">
+                    <span>{vertical}</span>
+                    <strong>${revenue.toFixed(2)}</strong>
+                  </div>
+                ))}
+                {Object.keys(stats.revenueByVertical).length === 0 && <p className="admin-empty">No sales yet.</p>}
+              </div>
+            </div>
+
+            <div>
+              <h2>Stores currently running offers ({stats.activeOffers.length})</h2>
+              <div className="admin-list admin-list-scroll">
+                {stats.activeOffers.map((o) => (
+                  <div key={o.storeId} className="admin-list-row admin-offer-row">
+                    <span>
+                      {o.storeName} <span className="admin-muted">· {o.vertical}</span>
+                    </span>
+                    <span className="admin-offer-tags">
+                      {o.offers.map((offer) => (
+                        <span key={offer} className="admin-offer-tag">{offer}</span>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+                {stats.activeOffers.length === 0 && <p className="admin-empty">No stores have an active offer.</p>}
+              </div>
+            </div>
           </div>
         </>
       )}
@@ -150,6 +216,10 @@ export default function AdminDashboard() {
 
       {tab === "customers" && (
         <div className="admin-table-wrap">
+          <p className="admin-note">
+            Passwords are stored as one-way hashes - QuickCart can't show you (or anyone) a customer's actual
+            password. To help someone who's locked out, reset it below to generate a new temporary password.
+          </p>
           <table className="admin-table">
             <thead>
               <tr>
@@ -161,6 +231,7 @@ export default function AdminDashboard() {
                 <th>Joined</th>
                 <th>Orders</th>
                 <th>Total Spent</th>
+                <th>Password</th>
               </tr>
             </thead>
             <tbody>
@@ -174,11 +245,44 @@ export default function AdminDashboard() {
                   <td className="admin-muted">{new Date(c.createdAt).toLocaleDateString()}</td>
                   <td>{c.orderCount}</td>
                   <td>${c.totalSpent.toFixed(2)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={resettingId === c.id}
+                      onClick={() => handleResetPassword(c)}
+                    >
+                      {resettingId === c.id ? "Resetting..." : "Reset password"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {customers.length === 0 && <p className="admin-empty">No accounts yet.</p>}
+        </div>
+      )}
+
+      {resetResult && (
+        <div className="admin-modal-backdrop" onClick={() => setResetResult(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Password reset</h2>
+            <p>
+              New temporary password for <strong>{resetResult.email}</strong>. Share it with the customer directly -
+              it will not be shown again, and they should change it after logging in.
+            </p>
+            <div className="admin-temp-password">{resetResult.temporaryPassword}</div>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => navigator.clipboard?.writeText(resetResult.temporaryPassword)}
+            >
+              Copy
+            </button>
+            <button type="button" className="link-button" onClick={() => setResetResult(null)}>
+              Close
+            </button>
+          </div>
         </div>
       )}
 

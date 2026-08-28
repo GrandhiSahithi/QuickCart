@@ -1,18 +1,29 @@
 package com.quickcart.service;
 
 import com.quickcart.dto.AdminCustomerResponse;
+import com.quickcart.dto.AdminOfferResponse;
+import com.quickcart.dto.AdminPasswordResetResponse;
 import com.quickcart.dto.AdminStatsResponse;
 import com.quickcart.model.Order;
 import com.quickcart.model.OrderItem;
+import com.quickcart.model.Product;
 import com.quickcart.model.Store;
 import com.quickcart.model.User;
 import com.quickcart.repository.OrderRepository;
+import com.quickcart.repository.ProductRepository;
 import com.quickcart.repository.StoreRepository;
 import com.quickcart.repository.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,14 +33,29 @@ import java.util.stream.Collectors;
 @Service
 public class AdminService {
 
+    // Excludes visually ambiguous characters (0/O, 1/l/I) so a temp password
+    // read aloud or copied by hand doesn't cause avoidable login failures.
+    private static final String TEMP_PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private final OrderRepository orderRepository;
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AdminService(OrderRepository orderRepository, StoreRepository storeRepository, UserRepository userRepository) {
+    public AdminService(
+            OrderRepository orderRepository,
+            StoreRepository storeRepository,
+            UserRepository userRepository,
+            ProductRepository productRepository,
+            PasswordEncoder passwordEncoder
+    ) {
         this.orderRepository = orderRepository;
         this.storeRepository = storeRepository;
         this.userRepository = userRepository;
+        this.productRepository = productRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<Order> getAllOrders() {
@@ -105,6 +131,84 @@ public class AdminService {
                 .limit(5)
                 .toList();
 
-        return new AdminStatsResponse(orders.size(), totalRevenue, avgOrderValue, ordersByStatus, topProducts, topStores);
+        List<User> users = userRepository.findAll();
+        long premiumCustomers = users.stream().filter(User::isPremium).count();
+        Instant sevenDaysAgo = Instant.now().minus(7, ChronoUnit.DAYS);
+        long newCustomersLast7Days = users.stream().filter(u -> u.getCreatedAt().isAfter(sevenDaysAgo)).count();
+
+        BigDecimal promoDiscountGiven = orders.stream()
+                .map(Order::getDiscountAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Map<String, BigDecimal> revenueByVertical = new LinkedHashMap<>();
+        for (Order order : orders) {
+            String vertical = order.getStore().getVertical().name();
+            revenueByVertical.merge(vertical, order.getTotalAmount(), BigDecimal::add);
+        }
+
+        return new AdminStatsResponse(
+                orders.size(),
+                totalRevenue,
+                avgOrderValue,
+                ordersByStatus,
+                topProducts,
+                topStores,
+                users.size(),
+                premiumCustomers,
+                newCustomersLast7Days,
+                promoDiscountGiven,
+                revenueByVertical,
+                getActiveOffers()
+        );
+    }
+
+    // A store "has an offer" if it has a delivery discount, or carries at
+    // least one SALE/BOGO product - stores with neither are left out rather
+    // than listed with an empty offers array.
+    private List<AdminOfferResponse> getActiveOffers() {
+        Map<Long, List<Product>> productsByStore = productRepository.findAll().stream()
+                .collect(Collectors.groupingBy(p -> p.getStore().getId()));
+
+        List<AdminOfferResponse> offers = new ArrayList<>();
+        for (Store store : storeRepository.findAll()) {
+            List<Product> products = productsByStore.getOrDefault(store.getId(), List.of());
+            long saleCount = products.stream().filter(p -> "SALE".equals(p.getBadge())).count();
+            long bogoCount = products.stream().filter(p -> "BOGO".equals(p.getBadge())).count();
+
+            List<String> storeOffers = new ArrayList<>();
+            if (saleCount > 0) storeOffers.add(saleCount + " item" + (saleCount == 1 ? "" : "s") + " on sale");
+            if (bogoCount > 0) storeOffers.add(bogoCount + " Buy 1 Get 1 item" + (bogoCount == 1 ? "" : "s"));
+            if (store.getDeliveryFeeDiscountPercent() != null && store.getDeliveryFeeDiscountPercent() > 0) {
+                storeOffers.add(store.getDeliveryFeeDiscountPercent() + "% off delivery");
+            }
+
+            if (!storeOffers.isEmpty()) {
+                offers.add(new AdminOfferResponse(store.getId(), store.getName(), store.getVertical().name(), storeOffers));
+            }
+        }
+        return offers;
+    }
+
+    // Generates a fresh temporary password and overwrites the account's hash
+    // with it. The plain value is returned to the caller exactly once here -
+    // it is never logged or persisted anywhere, and the original password is
+    // never recoverable since only its hash was ever stored.
+    public AdminPasswordResetResponse resetCustomerPassword(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No account found"));
+
+        String temporaryPassword = generateTemporaryPassword();
+        user.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+        userRepository.save(user);
+
+        return new AdminPasswordResetResponse(user.getId(), user.getEmail(), temporaryPassword);
+    }
+
+    private String generateTemporaryPassword() {
+        StringBuilder sb = new StringBuilder(12);
+        for (int i = 0; i < 12; i++) {
+            sb.append(TEMP_PASSWORD_ALPHABET.charAt(RANDOM.nextInt(TEMP_PASSWORD_ALPHABET.length())));
+        }
+        return sb.toString();
     }
 }

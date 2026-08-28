@@ -2,10 +2,13 @@ package com.quickcart.controller;
 
 import com.quickcart.dto.AdminCustomerResponse;
 import com.quickcart.dto.AdminOrderResponse;
+import com.quickcart.dto.AdminPasswordResetResponse;
 import com.quickcart.dto.AdminStatsResponse;
 import com.quickcart.dto.StoreResponse;
 import com.quickcart.service.AdminService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,5 +42,10 @@ public class AdminController {
     @GetMapping("/stats")
     public AdminStatsResponse getStats() {
         return adminService.getStats();
+    }
+
+    @PostMapping("/customers/{id}/reset-password")
+    public AdminPasswordResetResponse resetPassword(@PathVariable Long id) {
+        return adminService.resetCustomerPassword(id);
     }
 }

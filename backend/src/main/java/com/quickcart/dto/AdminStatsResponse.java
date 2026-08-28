@@ -10,7 +10,13 @@ public record AdminStatsResponse(
         BigDecimal avgOrderValue,
         Map<String, Long> ordersByStatus,
         List<TopEntry> topProducts,
-        List<TopEntry> topStores
+        List<TopEntry> topStores,
+        long totalCustomers,
+        long premiumCustomers,
+        long newCustomersLast7Days,
+        BigDecimal promoDiscountGiven,
+        Map<String, BigDecimal> revenueByVertical,
+        List<AdminOfferResponse> activeOffers
 ) {
     public record TopEntry(String name, long count, BigDecimal revenue) {
     }
