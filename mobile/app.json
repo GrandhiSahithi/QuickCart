@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0f0f14",
+    "icon": "./assets/icon.png",
     "plugins": [
       "expo-router"
     ],
@@ -15,7 +16,11 @@
       "bundleIdentifier": "com.example.quickcart"
     },
     "android": {
-      "package": "com.example.quickcart"
+      "package": "com.example.quickcart",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#14161a"
+      }
     },
     "extra": {
       "router": {},

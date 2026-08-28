@@ -27,9 +27,19 @@ export function AuthProvider({ children }) {
     setUser(persistedUser);
   }
 
+  // Password check only - returns an OTP challenge, no session yet.
   async function login(email, password) {
-    const auth = await authApi.login({ email, password });
+    return authApi.login({ email, password });
+  }
+
+  async function verifyOtp(email, code) {
+    const auth = await authApi.verifyOtp({ email, code });
     await persist(auth);
+    return auth;
+  }
+
+  function resendOtp(email) {
+    return authApi.resendOtp({ email });
   }
 
   async function signup(name, email, password) {
@@ -43,7 +53,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyOtp, resendOtp, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
